@@ -22,6 +22,7 @@ class ConnectivityManager: NSObject, ObservableObject {
     // 연결 상태 표시용
     @Published var isConnected: Bool = false
     @Published var connectedPeerName: String? = nil
+    @Published var lastReceivedMessage: String = ""
     
     // 게임 상태 (선택사항)
     var gameState: GameState?
@@ -105,21 +106,25 @@ extension ConnectivityManager: MCSessionDelegate {
         guard let message = String(data: data, encoding: .utf8) else { return }
         print("수신 데이터: \"\(message)\" from \(peerID.displayName)")
         
-        // 예: 게임 로직에 전달
+        // 마지막 수신 메시지 업데이트
         DispatchQueue.main.async { [weak self] in
-            guard let self = self, let gameState = self.gameState else { return }
+            guard let self = self else { return }
+            self.lastReceivedMessage = message
             
-            // 단순 예시: "x,y" 좌표이면 SelectGame, 숫자이면 ScrollGame
-            if message.contains(",") {
-                let parts = message.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
-                if parts.count == 2 {
-                    let (x, y) = (parts[0], parts[1])
-                    gameState.startSelectGame(targetX: x, targetY: y)
+            // 게임 로직에 전달 (기존 코드)
+            if let gameState = self.gameState {
+                // 단순 예시: "SELECT:x,y" 좌표이면 SelectGame, "SCROLL_SELECT:숫자"이면 ScrollGame
+                if message.hasPrefix("SELECT:") {
+                    // SelectView에서 메시지 처리할 수 있도록 함
+                    print("SELECT 메시지 수신: \(message)")
+                } else if message.hasPrefix("SCROLL_SELECT:") {
+                    if let numberStr = message.split(separator: ":").last,
+                       let number = Int(numberStr.trimmingCharacters(in: .whitespaces)) {
+                        gameState.startScrollGame(targetNumber: number)
+                    }
+                } else {
+                    print("알 수 없는 형식의 메시지 수신: \(message)")
                 }
-            } else if let number = Int(message.trimmingCharacters(in: .whitespaces)) {
-                gameState.startScrollGame(targetNumber: number)
-            } else {
-                print("알 수 없는 형식의 메시지 수신: \(message)")
             }
         }
     }

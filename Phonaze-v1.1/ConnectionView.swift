@@ -26,6 +26,7 @@ struct ConnectionView: View {
             }
         }
         .padding(40)
+        .frame(width: 300, height: 550) // 세로로 긴 창 크기 설정 (iPhone 비율과 유사)
         .background(.ultraThinMaterial)  // 시각적 효과 배경 (VisionOS에서는 창 스타일로 활용)
         .cornerRadius(20)
     }

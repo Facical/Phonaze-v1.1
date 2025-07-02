@@ -15,7 +15,7 @@
 	<string>Usage visionpro network</string>
 	<key>NSBonjourServices</key>
 	<array>
-		<string>&quot;_phonaze-service._tcp&quot;</string>
+		<string>_phonaze-service._tcp</string>
 	</array>
 </dict>
 </plist>
