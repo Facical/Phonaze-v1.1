@@ -7,6 +7,15 @@
 
 // Models/GameState.swift
 import Foundation
+import SwiftUI
+
+
+enum InteractionMethod {
+    case directTouch
+    case pinch
+    case phonaze
+    case none // 초기 상태
+}
 
 /// 게임 모드 열거형 (Select 패널 찾기 또는 Scroll 숫자 찾기)
 enum GameMode {
@@ -22,6 +31,9 @@ class GameState: ObservableObject {
     @Published var targetNumber: Int? = nil              // Scroll 게임에서 목표 숫자
     @Published var lastSelectTime: TimeInterval? = nil   // 최근 Select 게임 완료 시간 (초)
     @Published var lastScrollTime: TimeInterval? = nil   // 최근 Scroll 게임 완료 시간 (초)
+    @Published var currentInteractionMethod: InteractionMethod = .none
+    @Published var currentGameType: GameType = .none
+    @Published var shouldReturnToStart: Bool = false
     
     // 내부에서 사용할 시작 시간
     private var roundStartTime: Date? = nil
@@ -66,4 +78,18 @@ class GameState: ObservableObject {
         print("Scroll 게임 완료 - 경과 시간: \(String(format: "%.2f", elapsed))초")
         currentMode = .none
     }
+    
+    func resetGame() {
+        // 게임 상태 초기화 시 상호작용 모드는 유지하도록 할 수 있습니다.
+        // 또는 필요에 따라 .none으로 리셋할 수 있습니다.
+        targetCoord = nil
+        targetNumber = nil
+        currentGameType = .none
+    }
+}
+
+enum GameType {
+    case select
+    case scroll
+    case none
 }

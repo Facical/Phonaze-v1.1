@@ -60,6 +60,24 @@ class ConnectivityManager: NSObject, ObservableObject {
             }
         }
     }
+    
+    func disconnect() {
+             print("세션 연결을 종료합니다.")
+             
+             // 1. 현재 세션을 종료합니다.
+             session.disconnect()
+             
+             // 2. isConnected 상태를 수동으로 false로 변경하여 UI가 즉시 반응하도록 합니다.
+             //    (session delegate의 didChange state는 비동기적으로 호출될 수 있기 때문입니다.)
+             DispatchQueue.main.async {
+                 self.isConnected = false
+                 self.connectedPeerName = nil
+             }
+             
+             // 3. 광고를 중지했다가 다시 시작하여 새로운 연결 초대를 받을 준비를 합니다.
+             advertiser.stopAdvertisingPeer()
+             advertiser.startAdvertisingPeer()
+         }
 }
 
 // MARK: - MCNearbyServiceAdvertiserDelegate
@@ -101,33 +119,34 @@ extension ConnectivityManager: MCSessionDelegate {
         }
     }
     
-    // iPhone에서 보낸 데이터 수신
     func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
         guard let message = String(data: data, encoding: .utf8) else { return }
         print("수신 데이터: \"\(message)\" from \(peerID.displayName)")
         
-        // 마지막 수신 메시지 업데이트
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.lastReceivedMessage = message
-            
-            // 게임 로직에 전달 (기존 코드)
+
             if let gameState = self.gameState {
-                // 단순 예시: "SELECT:x,y" 좌표이면 SelectGame, "SCROLL_SELECT:숫자"이면 ScrollGame
                 if message.hasPrefix("SELECT:") {
-                    // SelectView에서 메시지 처리할 수 있도록 함
+                    // 향후 SelectGame 좌표 기반 로직이 필요할 때 사용
                     print("SELECT 메시지 수신: \(message)")
                 } else if message.hasPrefix("SCROLL_SELECT:") {
                     if let numberStr = message.split(separator: ":").last,
                        let number = Int(numberStr.trimmingCharacters(in: .whitespaces)) {
                         gameState.startScrollGame(targetNumber: number)
                     }
+                } else if message.hasPrefix("TAP") {
+                    // iPhone에서 패널 선택(터치) 시 수신
+                    print("TAP 메시지 수신: \(message) — SelectView에서 감지 후 처리됨")
+                    // SelectView의 .onChange(of: lastReceivedMessage)에서 선택 로직 처리
                 } else {
                     print("알 수 없는 형식의 메시지 수신: \(message)")
                 }
             }
         }
     }
+    
     
     // 스트림 등 다른 메서드는 사용 안 함
     func session(_ session: MCSession, didReceive stream: InputStream, withName streamName: String, fromPeer peerID: MCPeerID) {}
@@ -136,3 +155,4 @@ extension ConnectivityManager: MCSessionDelegate {
     func session(_ session: MCSession, didFinishReceivingResourceWithName resourceName: String,
                  fromPeer peerID: MCPeerID, at localURL: URL?, withError error: Error?) {}
 }
+

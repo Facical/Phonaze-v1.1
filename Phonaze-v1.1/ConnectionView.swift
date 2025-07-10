@@ -1,33 +1,47 @@
-//
-//  ConnectionView.swift
-//  Phonaze
-//
-//  Created by 강형준 on 3/18/25.
-//
-
-// Views/ConnectionView.swift
 import SwiftUI
 
 struct ConnectionView: View {
     @EnvironmentObject var connectivity: ConnectivityManager
     
+    // HomeView로 이동을 위한 상태 변수
+    @State private var navigateToHome = false
+
     var body: some View {
         VStack(spacing: 20) {
-            Text("📡 Phonaze 연결").font(.title2).bold()
             if connectivity.isConnected {
-                // 연결되었을 경우 (이 화면이 표시될 일은 거의 없음 - ContentView가 전환함)
-                Text("연결 성공: \(connectivity.connectedPeerName ?? "iPhone")")
-                    .foregroundStyle(.green)
+                // 연결 성공 시
+                Image(systemName: "iphone.gen3.radiowaves.left.and.right.circle.fill")
+                    .font(.system(size: 100))
+                    .foregroundColor(.green)
+                Text("iPhone 연결 성공!")
+                    .font(.largeTitle)
+                Text("잠시 후 게임 메뉴로 이동합니다.")
+                    .font(.title2)
             } else {
-                // 연결 시도 중인 경우
-                Text("iPhone을 찾는 중...").foregroundStyle(.secondary)
-                ProgressView().progressViewStyle(CircularProgressViewStyle())
-                    .padding()
+                // 연결 대기 중
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .scaleEffect(2)
+                Text("iPhone을 연결해주세요...")
+                    .font(.largeTitle)
+                    .padding(.top, 30)
+                Text("iPhone 앱에서 'Vision Pro에 연결' 버튼을 눌러주세요.")
+                    .font(.headline)
             }
         }
-        .padding(40)
-        .frame(width: 300, height: 550) // 세로로 긴 창 크기 설정 (iPhone 비율과 유사)
-        .background(.ultraThinMaterial)  // 시각적 효과 배경 (VisionOS에서는 창 스타일로 활용)
-        .cornerRadius(20)
+        .padding(50)
+        .navigationBarHidden(true)
+        .onChange(of: connectivity.isConnected) { isConnected in
+            // isConnected 상태가 true로 변경되면, 2초 후에 navigateToHome을 true로 설정
+            if isConnected {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    self.navigateToHome = true
+                }
+            }
+        }
+        // HomeView로의 네비게이션 링크
+        .navigationDestination(isPresented: $navigateToHome) {
+            HomeView()
+        }
     }
 }
