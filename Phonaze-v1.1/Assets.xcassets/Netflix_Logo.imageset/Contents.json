@@ -1,6 +1,7 @@
 {
   "images" : [
     {
+      "filename" : "Netflix_Logo.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
@@ -13,7 +14,6 @@
       "scale" : "3x"
     },
     {
-      "filename" : "Netflix_Logo.png",
       "idiom" : "vision",
       "scale" : "2x"
     }

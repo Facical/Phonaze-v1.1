@@ -1,4 +1,3 @@
-// Core/Experiment/CSVWriter.swift
 import Foundation
 
 enum CSVWriter {

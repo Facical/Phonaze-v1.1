@@ -1,105 +1,160 @@
 import SwiftUI
 
-/// Entry screen: choose interaction method.
-/// - Direct Touch: use visionOS default pinch/tap
-/// - Pinch: alias of direct touch (kept for legacy menu parity)
-/// - Phonaze (Gaze + iPhone): go to ConnectionView first
+/// 앱 홈 화면.
+/// - Media Browsing Task: onSelectMediaBrowsing() 호출 (ContentView에서 디스클레이머 → 플랫폼 선택으로 라우팅)
+/// - Scroll / Select / Connection: 필요 시 외부에서 콜백 연결(기본은 no-op)
 struct StartView: View {
-    @EnvironmentObject var gameState: GameState
+    @EnvironmentObject private var connectivity: ConnectivityManager
 
-    @State private var goHome = false
-    @State private var goConnection = false
-    @State private var showInfo = false
+    let onSelectMediaBrowsing: () -> Void
+    let onOpenScrollTask: () -> Void
+    let onOpenSelectTask: () -> Void
+    let onOpenConnection: () -> Void
 
-    var body: some View {
-        VStack(spacing: 28) {
-            HStack {
-                Text("Select Interaction Mode")
-                    .font(.largeTitle).bold()
-                Spacer()
-                Button {
-                    showInfo.toggle()
-                } label: {
-                    Label("Info", systemImage: "info.circle")
-                        .labelStyle(.iconOnly)
-                        .font(.title2)
-                }
-                .accessibilityLabel("Interaction modes info")
-            }
-            .padding(.horizontal)
-
-            // 1) Direct Touch
-            Button {
-                gameState.currentInteractionMethod = .directTouch
-                goHome = true
-            } label: {
-                modeButtonLabel(title: "Direct Touch",
-                                subtitle: "Use visionOS gaze + hand tap",
-                                systemImage: "hand.point.up.left.fill",
-                                color: .orange)
-            }
-
-            // 2) Pinch (kept for legacy parity)
-            Button {
-                gameState.currentInteractionMethod = .pinch
-                goHome = true
-            } label: {
-                modeButtonLabel(title: "Pinch",
-                                subtitle: "Gaze to point, pinch to select",
-                                systemImage: "hand.pinch.fill",
-                                color: .purple)
-            }
-
-            // 3) Phonaze
-            Button {
-                gameState.currentInteractionMethod = .phonaze
-                goConnection = true
-            } label: {
-                modeButtonLabel(title: "Phonaze (Gaze + iPhone)",
-                                subtitle: "Gaze to point, iPhone tap to confirm",
-                                systemImage: "iphone.and.arrow.forward",
-                                color: .cyan)
-            }
-
-            Spacer(minLength: 16)
-        }
-        .padding(36)
-        // Navigation
-        .navigationDestination(isPresented: $goHome) {
-            HomeView()
-        }
-        .navigationDestination(isPresented: $goConnection) {
-            ConnectionView()
-        }
-        // Info
-        .sheet(isPresented: $showInfo) {
-            ModeSelectionInfoView()
-                .presentationDetents([.medium, .large])
-        }
-        .navigationBarHidden(true)
+    /// 기본 이니셜라이저: 미연결 콜백은 no-op
+    init(
+        onSelectMediaBrowsing: @escaping () -> Void = {},
+        onOpenScrollTask: @escaping () -> Void = {},
+        onOpenSelectTask: @escaping () -> Void = {},
+        onOpenConnection: @escaping () -> Void = {}
+    ) {
+        self.onSelectMediaBrowsing = onSelectMediaBrowsing
+        self.onOpenScrollTask = onOpenScrollTask
+        self.onOpenSelectTask = onOpenSelectTask
+        self.onOpenConnection = onOpenConnection
     }
 
-    @ViewBuilder
-    private func modeButtonLabel(title: String, subtitle: String, systemImage: String, color: Color) -> some View {
-        HStack(alignment: .center, spacing: 16) {
-            Image(systemName: systemImage)
-                .font(.title)
-                .frame(width: 44, height: 44)
-                .foregroundStyle(.white)
-                .background(color.opacity(0.9))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+    var body: some View {
+        ZStack(alignment: .top) {
+            // 배경
+            Color.black.opacity(0.9).ignoresSafeArea()
+
+            VStack(spacing: 24) {
+                header
+
+                // 메인 카드(미디어 브라우징)
+                TaskCard(
+                    icon: "play.rectangle.on.rectangle",
+                    title: "Media Browsing Task",
+                    description: "Research Disclaimer → 플랫폼 선택(Netflix/YouTube) → 웹 브라우징",
+                    prominent: true,
+                    action: onSelectMediaBrowsing
+                )
+
+                // 기타 카드들 (필요 시 콜백 연결)
+                HStack(spacing: 18) {
+                    TaskCard(
+                        icon: "rectangle.and.hand.point.up.left",
+                        title: "Select Task",
+                        description: "정량 과제(그대로 유지)",
+                        action: onOpenSelectTask
+                    )
+                    TaskCard(
+                        icon: "arrow.up.and.down.and.arrow.left.and.right",
+                        title: "Scroll Task",
+                        description: "정량 과제(그대로 유지)",
+                        action: onOpenScrollTask
+                    )
+                }
+
+                HStack(spacing: 18) {
+                    TaskCard(
+                        icon: "antenna.radiowaves.left.and.right",
+                        title: "Connection",
+                        description: connectivity.isConnected
+                            ? "연결됨: \(connectivity.connectedPeerName ?? "iPhone")"
+                            : "iPhone 보조 컨트롤러 연결",
+                        action: onOpenConnection
+                    )
+                    // 여분 슬롯(필요 없으면 제거)
+                    TaskCard(
+                        icon: "info.circle",
+                        title: "About / Logs",
+                        description: "실험 로그 & CSV 내보내기",
+                        action: { /* 필요 시 연결 */ }
+                    )
+                }
+
+                Spacer(minLength: 12)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+        }
+    }
+
+    // MARK: - Subviews
+
+    private var header: some View {
+        HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.title2).bold()
-                Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
+                Text("Phonaze")
+                    .font(.largeTitle).bold()
+                Text("Vision Pro · Media Interaction Experiments")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
             Spacer()
-            Image(systemName: "chevron.right")
+            connectionBadge
+        }
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var connectionBadge: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(connectivity.isConnected ? Color.green : Color.red)
+                .frame(width: 10, height: 10)
+            Text(connectivity.isConnected
+                 ? "Connected\(connectivity.connectedPeerName.map { " · \($0)" } ?? "")"
+                 : "Not Connected")
+                .font(.footnote)
                 .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 14)
-        .padding(.horizontal, 18)
-        .frame(maxWidth: 520)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(.regularMaterial, in: Capsule())
+    }
+}
+
+private struct TaskCard: View {
+    let icon: String
+    let title: String
+    let description: String
+    var prominent: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .center, spacing: 16) {
+                Image(systemName: icon)
+                    .font(.system(size: prominent ? 36 : 28, weight: .semibold))
+                    .frame(width: prominent ? 56 : 44, height: prominent ? 56 : 44)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title).font(prominent ? .title2.bold() : .headline)
+                    Text(description)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, minHeight: prominent ? 100 : 82)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24)
+                    .strokeBorder(.white.opacity(0.08), lineWidth: 1)
+            )
+            .shadow(radius: prominent ? 14 : 10, y: prominent ? 8 : 6)
+        }
+        .buttonStyle(.plain)
     }
 }
