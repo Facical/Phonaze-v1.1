@@ -5,70 +5,35 @@
       "title": "Critically Acclaimed TV Shows",
       "items": [
         {
-          "id": "tt-0001",
-          "title": "Blazing Chef",
-          "thumbName": "thumb_blazing_chef",
-          "videoFileName": "clip_cooking.mp4",
-          "durationSec": 8,
-          "tags": ["food", "drama"],
-          "overview": "High-heat culinary showdown."
+          "id": "cr-001",
+          "title": "Wednesday",
+          "thumbName": "thumb_wednesday",
+          "videoFileName": "clip_wednesday.mp4",
+          "durationSec": 10,
+          "tags": ["New Episodes", "top10"],
+          "overview": "A coming-of-age supernatural mystery."
         },
         {
-          "id": "tt-0002",
-          "title": "Stone Valley",
-          "thumbName": "thumb_stone_valley",
-          "videoFileName": "clip_nature.mp4",
-          "durationSec": 7,
-          "tags": ["nature"],
-          "overview": "A quiet walk through misty hills."
+          "id": "cr-002",
+          "title": "Squid Game",
+          "thumbName": "thumb_squid",
+          "videoFileName": "clip_squid.mp4",
+          "durationSec": 8,
+          "tags": ["Trending"],
+          "overview": "Desperate contestants compete in deadly games."
         }
       ]
     },
     {
-      "id": "sec-crowd",
-      "title": "Crowd Pleasers",
+      "id": "sec-top10",
+      "title": "Top 10 TV Shows in South Korea Today",
       "items": [
         {
-          "id": "tt-0010",
-          "title": "Metro Chase",
-          "thumbName": "thumb_metro_chase",
-          "videoFileName": "clip_action.mp4",
-          "durationSec": 9,
-          "tags": ["action"],
-          "overview": "A tense sprint across the city."
-        },
-        {
-          "id": "tt-0011",
-          "title": "Retro Beats",
-          "thumbName": "thumb_retro_beats",
-          "videoFileName": "clip_music.mp4",
-          "durationSec": 6,
-          "tags": ["music"],
-          "overview": "Neon grooves and synth vibes."
-        }
-      ]
-    },
-    {
-      "id": "sec-jp",
-      "title": "Japanese TV Shows",
-      "items": [
-        {
-          "id": "tt-0020",
-          "title": "Volley High",
-          "thumbName": "thumb_volley_high",
-          "videoFileName": "clip_sport.mp4",
-          "durationSec": 8,
-          "tags": ["sports"],
-          "overview": "Quick rallies and big comebacks."
-        },
-        {
-          "id": "tt-0021",
-          "title": "Mystic Library",
-          "thumbName": "thumb_mystic_library",
-          "videoFileName": "clip_fantasy.mp4",
-          "durationSec": 7,
-          "tags": ["fantasy"],
-          "overview": "A door opens to timeless knowledge."
+          "id": "top-001",
+          "title": "Queen of Tears",
+          "thumbName": "thumb_queen",
+          "videoFileName": "clip_queen.mp4",
+          "tags": ["New Episode", "top10"]
         }
       ]
     }

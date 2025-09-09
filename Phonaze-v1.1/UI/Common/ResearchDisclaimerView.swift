@@ -1,37 +1,64 @@
 import SwiftUI
 
-/// Research disclaimer gate shown before entering the media browser.
 struct ResearchDisclaimerView: View {
     var onConfirm: () -> Void
     var onCancel: () -> Void = {}
-
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: 0) {
+            // Header
             HStack {
                 Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.largeTitle)
                     .foregroundStyle(.yellow)
-                Text("Prototype Notice")
-                    .font(.title3).bold()
+                Text("Research Study Notice")
+                    .font(.title2).bold()
                 Spacer()
             }
-
-            // 요구한 문구를 "작은 텍스트"로 표기
-            Text("[Prototype] This is a custom mock streaming UI for research; not affiliated with any brand.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Spacer(minLength: 8)
-
-            HStack {
-                Button("Cancel") { onCancel() }
-                Spacer()
-                Button("OK") { onConfirm() }
-                    .buttonStyle(.borderedProminent)
+            .padding()
+            .background(Color.yellow.opacity(0.1))
+            
+            // Content
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Important Information")
+                    .font(.headline)
+                
+                Text("This is a custom mock streaming interface created solely for academic research purposes. It is not affiliated with, endorsed by, or connected to Netflix or any other streaming service.")
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                
+                Text("• All content shown is simulated\n• No actual streaming occurs\n• Data collected is for research only\n• Your privacy is protected")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 8)
+                
+                Text("By clicking 'I Understand', you acknowledge this is a research prototype.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
+            .padding()
+            
+            Divider()
+            
+            // Buttons
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    onCancel()
+                }
+                .buttonStyle(.bordered)
+                
+                Spacer()
+                
+                Button("I Understand") {
+                    onConfirm()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+            .padding()
         }
-        .padding(20)
-        // visionOS에서도 잘 보이도록 기본 시트 높이
-        .presentationDetents([.medium, .large])
+        .frame(maxWidth: 600)
+        .background(Color(UIColor.systemBackground))
+        .cornerRadius(16)
     }
 }
