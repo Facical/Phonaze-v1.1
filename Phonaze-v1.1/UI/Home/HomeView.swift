@@ -1,117 +1,154 @@
 import SwiftUI
-import UIKit
-import WebKit
 
-struct WebView: UIViewRepresentable {
-    let url: URL
-    func makeUIView(context: Context) -> WKWebView {
-        return WKWebView()
-    }
-    func updateUIView(_ uiView: WKWebView, context: Context) {
-        let request = URLRequest(url: url)
-        uiView.load(request)
-    }
-}
-
+/// Main menu after a mode is chosen / connection is established (for Phonaze).
+/// - Shows current interaction method
+/// - Entry points to legacy tasks and the new Media Browsing Task
 struct HomeView: View {
     @EnvironmentObject var connectivity: ConnectivityManager
     @EnvironmentObject var gameState: GameState
-    
-    @State private var showWebView: Bool = false
-    @State private var webURL: URL? = nil
+
     @State private var selectViewID = UUID()
-    
-    // 현재 모드를 텍스트로 변환하는 도우미 함수
+    @State private var goMediaHome = false
+
     private var modeText: String {
         switch gameState.currentInteractionMethod {
-        case .directTouch:
-            return "직접 터치 모드"
-        case .pinch:
-            return "핀치 모드"
-        case .phonaze:
-            return "Phonaze 모드"
-        case .none:
-            return "모드 선택 안됨"
+        case .directTouch: return "Direct Touch"
+        case .pinch:       return "Pinch"
+        case .phonaze:     return "Phonaze (Gaze + iPhone)"
+        case .none:        return "Not Selected"
         }
     }
-    
+
     var body: some View {
         HStack(spacing: 40) {
-            VStack(spacing: 20) {
-                Spacer()
-            }
-            .frame(minWidth: 140)
-            .padding(.vertical, 40)
-            
-            VStack(spacing: 30) {
+            // Left spacer/illustration area (optional)
+            VStack { Spacer() }
+                .frame(minWidth: 140)
+                .padding(.vertical, 40)
+
+            // Main menu
+            VStack(spacing: 22) {
                 Text("Phonaze Menu")
                     .font(.title).bold()
-                
-                // 현재 모드 표시
+
                 Text("(\(modeText))")
                     .font(.headline)
-                    .foregroundColor(.gray)
-                    .padding(.bottom, 20)
-                
-                // Select 게임으로 이동
+                    .foregroundStyle(.secondary)
+                    .padding(.bottom, 8)
+
+                // === New Media Browsing Task ===
+                Button {
+                    // For Phonaze, ensure the device is connected
+                    if gameState.currentInteractionMethod == .phonaze, connectivity.isConnected == false {
+                        // If not connected, push user back to ConnectionView
+                        goMediaHome = false
+                    } else {
+                        goMediaHome = true
+                    }
+                } label: {
+                    menuButtonLabel(
+                        title: "Media Browsing Task",
+                        subtitle: "Netflix-style home | local videos",
+                        systemImage: "play.rectangle.on.rectangle",
+                        tint: .red.opacity(0.85)
+                    )
+                }
+                .buttonStyle(.plain)
+                .navigationDestination(isPresented: $goMediaHome) {
+                    // Temporary placeholder until MediaHomeView is added.
+                    MediaHomeView()
+                }
+
+                // === Legacy Tasks (kept) ===
                 NavigationLink(destination: SelectView().id(selectViewID)) {
-                    Label("Panel Select Task", systemImage: "square.grid.4x3.fill")
-                        .font(.headline)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.blue.opacity(0.2))
-                        .cornerRadius(10)
+                    menuButtonLabel(
+                        title: "Panel Select Task",
+                        subtitle: "Legacy selection game",
+                        systemImage: "square.grid.4x3.fill",
+                        tint: .blue.opacity(0.8)
+                    )
                 }
                 .simultaneousGesture(TapGesture().onEnded { selectViewID = UUID() })
-                // Scroll 게임으로 이동
+
                 NavigationLink(destination: ScrollViewGame()) {
-                    Label("Number Scroll Task", systemImage: "number.circle")
-                        .font(.headline)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.green.opacity(0.2))
-                        .cornerRadius(10)
+                    menuButtonLabel(
+                        title: "Number Scroll Task",
+                        subtitle: "Legacy scrolling game",
+                        systemImage: "number.circle",
+                        tint: .green.opacity(0.8)
+                    )
                 }
-                
-                // --- Divider와 버튼 추가 ---
-                Divider().padding(.vertical, 10)
-                
-                Button(action: {
-                    // Phonaze 모드였다면 연결 해제
+
+                Divider().padding(.vertical, 6)
+
+                Button {
+                    // If Phonaze, gracefully disconnect then go back to Start
                     if gameState.currentInteractionMethod == .phonaze {
                         connectivity.disconnect()
                     }
-                    // StartView로 돌아가기 신호를 true로 설정
                     gameState.shouldReturnToStart = true
-                }) {
-                    Label("Select Mode Again", systemImage: "arrow.uturn.backward.circle.fill")
-                        .font(.headline)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.gray.opacity(0.2))
-                        .foregroundColor(.primary)
-                        .cornerRadius(10)
+                } label: {
+                    menuButtonLabel(
+                        title: "Select Mode Again",
+                        subtitle: "Return to start and choose a mode",
+                        systemImage: "arrow.uturn.backward.circle.fill",
+                        tint: .gray.opacity(0.7)
+                    )
                 }
+                .buttonStyle(.plain)
             }
             .padding(40)
         }
-        .navigationTitle("🕹️ Home") // NavigationStack 상단에 제목 표시
-        .navigationBarBackButtonHidden(true) // 뒤로가기 버튼 숨기기 (선택적)
+        .navigationTitle("Home")
+        .navigationBarBackButtonHidden(true)
         .onAppear {
             gameState.shouldReturnToStart = false
-            // 게임 상태 초기화
             gameState.resetGame()
         }
-        // HomeView.swift 내부
-        NavigationLink(destination: BrowserView()) {
-            Label("Web Browser (Phonaze)", systemImage: "safari")
-                .font(.headline)
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color.orange.opacity(0.2))
-                .cornerRadius(10)
+        .alert("Not Connected", isPresented: .constant(shouldWarnConnection)) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Please connect your iPhone first to use the Phonaze mode.")
         }
+    }
 
+    private var shouldWarnConnection: Bool {
+        gameState.currentInteractionMethod == .phonaze && connectivity.isConnected == false && goMediaHome == true
+    }
+
+    @ViewBuilder
+    private func menuButtonLabel(title: String, subtitle: String, systemImage: String, tint: Color) -> some View {
+        HStack(spacing: 16) {
+            Image(systemName: systemImage)
+                .font(.title2)
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(tint)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.headline)
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right").foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .frame(maxWidth: 520)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
 
+/// Temporary placeholder view to keep build green
+/// Replace this with the real MediaHomeView (UI/MediaBrowse/MediaHomeView.swift).
+struct MediaHomePlaceholderView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Media Home (Placeholder)").font(.title2).bold()
+            Text("Add UI/MediaBrowse/MediaHomeView.swift and navigate here.")
+                .foregroundStyle(.secondary)
+        }
+        .padding(40)
+    }
+}
