@@ -21,8 +21,8 @@ public enum StreamingPlatform: String, CaseIterable, Identifiable {
 
     public var assetName: String {
         switch self {
-        case .netflix: return "netflix_logo" // Assets.xcassets 이름과 일치
-        case .youtube: return "youtube_logo"
+        case .netflix: return "Netflix_Logo" // Assets.xcassets 이름과 일치
+        case .youtube: return "Youtube_Logo"
         }
     }
 

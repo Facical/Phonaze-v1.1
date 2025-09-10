@@ -8,38 +8,38 @@ struct GameInteraction {
     let targetPanel: Int
     let selectedPanel: Int
     let wasSuccessful: Bool
-    let inputMethod: String // "Direct" 또는 "iPhone"
+    let inputMethod: String // "Direct" or "iPhone"
 }
 
-struct SelectView: View {
+struct SelectGameView: View {
     @EnvironmentObject var connectivity: ConnectivityManager
 
-    // --- 기본 설정 ---
+    // --- Basic Settings ---
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
     private let panelChangeInterval: TimeInterval = 1.0
 
-    // --- 게임 상태 변수 ---
-    @State private var gameState: GamePhase = .startScreen // 게임 단계를 관리 (시작, 진행, 결과)
+    // --- Game State Variables ---
+    @State private var gameState: GamePhase = .startScreen // Manages game phases (start, playing, results)
     @State private var showRoundSelection = false
 
-    // --- 라운드 및 점수 ---
+    // --- Round and Score ---
     @State private var totalRounds: Int = 10
     @State private var successCount = 0
     @State private var failCount = 0
     
-    // --- 시간 측정 ---
+    // --- Time Measurement ---
     @State private var gameStartTime: Date?
     @State private var totalGameTime: TimeInterval = 0
     
-    // --- 타겟 및 입력 관리 ---
+    // --- Target and Input Management ---
     @State private var currentTargetIndex: Int?
     @State private var hoveredIndex: Int?
     @State private var targetChangeTimer: Timer?
     
-    // --- 데이터 기록 ---
+    // --- Data Recording ---
     @State private var interactions: [GameInteraction] = []
     
-    // 게임 단계를 나타내는 열거형
+    // Enumeration representing game phases
     enum GamePhase {
         case startScreen
         case playing
@@ -59,20 +59,20 @@ struct SelectView: View {
         }
         .padding(20)
         .frame(width: 400, height: 600)
-        // 점수 선택 다이얼로그
+        // Score selection dialog
         .confirmationDialog("Select Target Score", isPresented: $showRoundSelection, titleVisibility: .visible) {
             Button("10 Points") { setRoundsAndStart(10) }
             Button("15 Points") { setRoundsAndStart(15) }
             Button("20 Points") { setRoundsAndStart(20) }
         }
-        // iPhone 메시지 수신
+        // Receive iPhone message
         .onChange(of: connectivity.lastReceivedMessage) { _, newMessage in
             if newMessage.hasPrefix("TAP") {
-                // iPhone에서 TAP 신호를 받으면 '항상 노란 패널(타겟)'을 선택 처리
+                // When receiving TAP signal from iPhone, always process selection of yellow panel (target)
                 if let target = currentTargetIndex {
                     processSelection(selectedIndex: target, via: "iPhone")
                 } else {
-                    print("TAP 수신, 하지만 currentTargetIndex가 nil입니다 (선택 처리 불가)")
+                    print("Received TAP, but currentTargetIndex is nil (cannot process selection)")
                 }
             }
         }
@@ -81,7 +81,7 @@ struct SelectView: View {
 
     // MARK: - Subviews for each GamePhase
     
-    /// 1. 시작 화면 (Start Game 버튼)
+    /// 1. Start screen (Start Game button)
     private var startScreenView: some View {
         VStack(spacing: 40) {
             Text("Select Panel Game")
@@ -94,7 +94,7 @@ struct SelectView: View {
                 .padding(.horizontal)
             
             Button("Start Game") {
-                // 점수 선택 다이얼로그를 띄움
+                // Show score selection dialog
                 showRoundSelection = true
             }
             .font(.title)
@@ -102,7 +102,7 @@ struct SelectView: View {
         }
     }
     
-    /// 2. 게임 진행 중 화면
+    /// 2. Game in progress screen
     private var gamePlayingView: some View {
         VStack(spacing: 20) {
             Text("Select the Yellow Panel").font(.title2).bold()
@@ -123,7 +123,7 @@ struct SelectView: View {
         }
     }
     
-    /// 3. 게임 결과 화면
+    /// 3. Game results screen
     private var gameResultsView: some View {
         VStack(spacing: 25) {
             Text("Game Over!").font(.title).bold()
@@ -152,7 +152,7 @@ struct SelectView: View {
         }
     }
     
-    /// 공용 패널 뷰
+    /// Common panel view
     private func panelView(for index: Int) -> some View {
         Rectangle()
             .fill(panelColor(for: index))
@@ -170,7 +170,7 @@ struct SelectView: View {
 
     // MARK: - Game Logic
     
-    /// 점수를 설정하고 즉시 게임을 시작하는 함수
+    /// Function to set score and start game immediately
     private func setRoundsAndStart(_ count: Int) {
         totalRounds = count
         startGame()
@@ -182,7 +182,7 @@ struct SelectView: View {
         totalGameTime = 0
         gameStartTime = Date()
         interactions = []
-        gameState = .playing // 게임 상태를 '진행 중'으로 변경
+        gameState = .playing // Change game state to 'in progress'
         
         setRandomTarget()
         
@@ -245,9 +245,9 @@ struct SelectView: View {
         if successful {
             successCount += 1
             if successCount >= totalRounds {
-                stopGame() // 게임 종료
+                stopGame() // End game
             } else {
-                // 성공 시 타이머 리셋 및 즉시 다음 타겟으로
+                // On success, reset timer and immediately move to next target
                 targetChangeTimer?.fireDate = Date().addingTimeInterval(panelChangeInterval)
                 setRandomTarget()
             }

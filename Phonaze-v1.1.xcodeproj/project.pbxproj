@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		33BAE24E2D899632005EEA83 /* RealityKitContent in Frameworks */ = {isa = PBXBuildFile; productRef = 33BAE24D2D899632005EEA83 /* RealityKitContent */; };
+		8DE7D17E2E712D2900B42042 /* RealityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8DE7D17D2E712D2900B42042 /* RealityKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -22,8 +22,8 @@
 
 /* Begin PBXFileReference section */
 		33BAE2482D899632005EEA83 /* Phonaze-v1.1.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Phonaze-v1.1.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		33BAE24C2D899632005EEA83 /* RealityKitContent */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = RealityKitContent; sourceTree = "<group>"; };
 		33BAE25D2D899633005EEA83 /* Phonaze-v1.1Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Phonaze-v1.1Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		8DE7D17D2E712D2900B42042 /* RealityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityKit.framework; path = System/Library/Frameworks/RealityKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -57,7 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				33BAE24E2D899632005EEA83 /* RealityKitContent in Frameworks */,
+				8DE7D17E2E712D2900B42042 /* RealityKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,8 +75,8 @@
 			isa = PBXGroup;
 			children = (
 				33BAE24A2D899632005EEA83 /* Phonaze-v1.1 */,
-				33BAE24B2D899632005EEA83 /* Packages */,
 				33BAE2602D899633005EEA83 /* Phonaze-v1.1Tests */,
+				8DE7D17C2E712D2900B42042 /* Frameworks */,
 				33BAE2492D899632005EEA83 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -90,12 +90,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		33BAE24B2D899632005EEA83 /* Packages */ = {
+		8DE7D17C2E712D2900B42042 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				33BAE24C2D899632005EEA83 /* RealityKitContent */,
+				8DE7D17D2E712D2900B42042 /* RealityKit.framework */,
 			);
-			path = Packages;
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -118,7 +118,6 @@
 			);
 			name = "Phonaze-v1.1";
 			packageProductDependencies = (
-				33BAE24D2D899632005EEA83 /* RealityKitContent */,
 			);
 			productName = "Phonaze-v1.1";
 			productReference = 33BAE2482D899632005EEA83 /* Phonaze-v1.1.app */;
@@ -477,13 +476,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		33BAE24D2D899632005EEA83 /* RealityKitContent */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = RealityKitContent;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 33BAE2402D899632005EEA83 /* Project object */;
 }

@@ -10,7 +10,7 @@ struct PlatformPickerView: View {
                 if let onBack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
-                        Text("뒤로")
+                        Text("Back")
                     }
                 }
                 Spacer()
@@ -18,9 +18,9 @@ struct PlatformPickerView: View {
             .font(.headline)
             .opacity(onBack == nil ? 0 : 1)
 
-            Text("플랫폼 선택")
+            Text("Select Platform")
                 .font(.largeTitle).bold()
-            Text("실험 전 실제 플랫폼을 선택하세요.")
+            Text("Please choose a platform before the experiment.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 

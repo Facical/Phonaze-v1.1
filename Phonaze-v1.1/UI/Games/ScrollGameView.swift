@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct ScrollViewGame: View {
+struct ScrollGameView: View {
     @EnvironmentObject var connectivity: ConnectivityManager
     
     // 스크롤할 숫자 (1~50)
@@ -15,7 +15,7 @@ struct ScrollViewGame: View {
     // 중앙 감지 중복 방지
     @State private var recentlyUpdatedCenter: Bool = false
     
-    // 게임 목표 점수 (5, 10, 15 중 선택)
+    // Target score for the game (choose from 5, 10, 15)
     @State private var scoreGoal: Int? = nil
     
     // 현재 점수
@@ -39,7 +39,7 @@ struct ScrollViewGame: View {
         VStack(spacing: 20) {
             
             if let goal = scoreGoal {
-                // 이미 목표를 선택했다면 => 게임 진행
+                // If target is already selected => game in progress
                 if gameOver {
                     gameOverView(goal: goal)
                 } else {
@@ -47,7 +47,7 @@ struct ScrollViewGame: View {
                 }
                 
             } else {
-                // 아직 점수 Goal을 정하지 않음 => 시작 화면
+                // Haven't set score goal yet => start screen
                 startView
             }
         }
@@ -60,9 +60,9 @@ struct ScrollViewGame: View {
 }
 
 // MARK: - Subviews
-extension ScrollViewGame {
+extension ScrollGameView {
     
-    /// 아직 점수 목표 선택 전 => "게임 시작" 버튼만 있는 화면
+    /// Screen before selecting score goal => only "Game Start" button
     private var startView: some View {
         VStack(spacing: 30) {
             Text("Select Score Goal")
@@ -72,7 +72,7 @@ extension ScrollViewGame {
                 .foregroundColor(.secondary)
             
             Button("Game Start") {
-                // 알림창(또는 Sheet 등)으로 5/10/15 중 선택
+                // Alert (or Sheet) to select from 5/10/15
                 showGoalSelectionAlert()
             }
             .font(.title3)
@@ -84,7 +84,7 @@ extension ScrollViewGame {
         }
     }
     
-    /// 실제 게임 스크롤 화면
+    /// Actual game scroll screen
     private func gameContentView(goal: Int) -> some View {
         VStack(spacing: 10) {
             Text("ScrollView (VisionOS)")
@@ -103,7 +103,7 @@ extension ScrollViewGame {
                     .foregroundColor(.red)
             }
             
-            // 스크롤 영역 (대략 7개 표시)
+            // Scroll area (shows approximately 7 items)
             GeometryReader { geo in
                 ScrollView(.vertical, showsIndicators: false) {
                     ScrollViewReader { proxy in
@@ -144,12 +144,12 @@ extension ScrollViewGame {
             Spacer()
         }
         .onAppear {
-            // 게임 시작 초기화
+            // Game start initialization
             startGame(goal: goal)
         }
     }
     
-    /// 게임 종료 화면
+    /// Game over screen
     private func gameOverView(goal: Int) -> some View {
         VStack(spacing: 20) {
             Text("Game Over!")
@@ -179,7 +179,7 @@ extension ScrollViewGame {
 }
 
 // MARK: - Internal Logic
-extension ScrollViewGame {
+extension ScrollGameView {
     
     /// iPhone -> Vision
     private func processMessage(_ message: String) {
@@ -187,7 +187,7 @@ extension ScrollViewGame {
             if let data = message.split(separator: ":").last,
                let number = Int(data.trimmingCharacters(in: .whitespacesAndNewlines)) {
                 scrollToNumber(number)
-                // iPhone에서 이미 중앙이라 판단 => 즉시 점수 처리
+                // iPhone already determined center => immediate score processing
                 if let target = targetNumber, target == number {
                     handleScored()
                 }
@@ -195,30 +195,30 @@ extension ScrollViewGame {
         }
     }
     
-    /// 게임 시작(점수 골 설정)
+    /// Game start (set score goal)
     private func startGame(goal: Int) {
-        // 매번 onAppear가 호출될 수 있으므로, 중복 방지
+        // Prevent duplication as onAppear may be called every time
         if startTime == nil {
-            // 실제 게임 시작 시간
+            // Actual game start time
             startTime = Date()
-            // 첫 목표 생성
+            // Generate first target
             generateNewTarget()
             score = 0
             gameOver = false
         }
     }
     
-    /// Goal 선택 알림창 (5, 10, 15)
+    /// Goal selection alert (5, 10, 15)
     private func showGoalSelectionAlert() {
-        // SwiftUI에선 간단히 Alert + .confirmationDialog, or .sheet
-        // 여기서는 .alert 예시
-        // (프로젝트 상황에 맞춰 .confirmationDialog 등으로 바꿀 수 있음)
+        // In SwiftUI, use Alert + .confirmationDialog, or .sheet
+        // Here's an Alert example
+        // (Can be changed to .confirmationDialog etc. according to project needs)
         
         let alert = UIAlertController(title: "Select Task Score",
                                       message: "Pick total points to finish",
                                       preferredStyle: .alert)
         
-        // 세 가지 액션
+        // Three actions
         let fiveAction = UIAlertAction(title: "5 points", style: .default) { _ in
             scoreGoal = 5
         }
@@ -235,14 +235,14 @@ extension ScrollViewGame {
         alert.addAction(fifteenAction)
         alert.addAction(cancelAction)
         
-        // UIKit 방식으로 Alert 표시
+        // Display Alert using UIKit approach
         if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let root = scene.windows.first?.rootViewController {
             root.present(alert, animated: true, completion: nil)
         }
     }
     
-    /// 특정 숫자로 스크롤 (원격 스크롤)
+    /// Scroll to specific number (remote scroll)
     private func scrollToNumber(_ number: Int) {
         guard let proxy = scrollProxy else { return }
         guard numbers.contains(number) else { return }
@@ -256,7 +256,7 @@ extension ScrollViewGame {
         }
     }
     
-    /// Vision 직접 스크롤 중, 중앙 근처 숫자 감지
+    /// Detect number near center while directly scrolling on Vision
     private func checkCenter(_ num: Int,
                              _ itemGeo: GeometryProxy,
                              _ containerGeo: GeometryProxy,
@@ -275,7 +275,7 @@ extension ScrollViewGame {
                 recentlyUpdatedCenter = false
             }
             
-            // 0.5초 후 점수 처리
+            // Process score after 0.5 seconds
             centerCheckTask?.cancel()
             let task = DispatchWorkItem {
                 if let target = targetNumber, target == num {
@@ -287,7 +287,7 @@ extension ScrollViewGame {
         }
     }
     
-    /// 목표를 맞추었을 때 점수 +1
+    /// Score +1 when target is hit
     private func handleScored() {
         score += 1
         if let goal = scoreGoal, score >= goal {
@@ -297,7 +297,7 @@ extension ScrollViewGame {
         }
     }
     
-    /// 게임 종료 -> 시간 계산
+    /// Game end -> calculate time
     private func endGame() {
         gameOver = true
         if let start = startTime {
@@ -305,15 +305,15 @@ extension ScrollViewGame {
         }
     }
     
-    /// 새 목표 숫자
+    /// New target number
     private func generateNewTarget() {
         let rand = Int.random(in: 3...48)
         targetNumber = rand
     }
     
-    /// 게임 리셋 -> 다시 점수 선택 화면
+    /// Game reset -> return to score selection screen
     private func resetGame() {
-        // 점수Goal을 nil로 해서, startView로 돌아감
+        // Set scoreGoal to nil to return to startView
         scoreGoal = nil
         score = 0
         gameOver = false
@@ -322,7 +322,7 @@ extension ScrollViewGame {
         startTime = nil
     }
     
-    /// 목표 숫자면 빨간 배경, 아니면 초록
+    /// Red background if target number, green otherwise
     private func targetBackground(num: Int) -> Color {
         if let target = targetNumber, target == num {
             return Color.red.opacity(0.3)

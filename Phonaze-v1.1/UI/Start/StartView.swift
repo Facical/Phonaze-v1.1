@@ -36,7 +36,7 @@ struct StartView: View {
                 TaskCard(
                     icon: "play.rectangle.on.rectangle",
                     title: "Media Browsing Task",
-                    description: "Research Disclaimer → 플랫폼 선택(Netflix/YouTube) → 웹 브라우징",
+                    description: "Research Disclaimer → Platform Selection (Netflix/YouTube) → Web Browsing",
                     prominent: true,
                     action: onSelectMediaBrowsing
                 )
@@ -46,13 +46,13 @@ struct StartView: View {
                     TaskCard(
                         icon: "rectangle.and.hand.point.up.left",
                         title: "Select Task",
-                        description: "정량 과제(그대로 유지)",
+                        description: "Quantitative Task (kept as is)",
                         action: onOpenSelectTask
                     )
                     TaskCard(
                         icon: "arrow.up.and.down.and.arrow.left.and.right",
                         title: "Scroll Task",
-                        description: "정량 과제(그대로 유지)",
+                        description: "Quantitative Task (kept as is)",
                         action: onOpenScrollTask
                     )
                 }
@@ -62,16 +62,16 @@ struct StartView: View {
                         icon: "antenna.radiowaves.left.and.right",
                         title: "Connection",
                         description: connectivity.isConnected
-                            ? "연결됨: \(connectivity.connectedPeerName ?? "iPhone")"
-                            : "iPhone 보조 컨트롤러 연결",
+                            ? "Connected: \(connectivity.connectedPeerName ?? "iPhone")"
+                            : "Connect iPhone auxiliary controller",
                         action: onOpenConnection
                     )
-                    // 여분 슬롯(필요 없으면 제거)
+                    // Extra slot (remove if not needed)
                     TaskCard(
                         icon: "info.circle",
                         title: "About / Logs",
-                        description: "실험 로그 & CSV 내보내기",
-                        action: { /* 필요 시 연결 */ }
+                        description: "Experiment logs & CSV export",
+                        action: { /* Connect if needed */ }
                     )
                 }
 
