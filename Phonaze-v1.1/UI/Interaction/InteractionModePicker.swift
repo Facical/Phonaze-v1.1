@@ -20,3 +20,4 @@ struct InteractionModePicker: View {
         .onChange(of: mode) { _, new in onChange?(new) }
     }
 }
+
