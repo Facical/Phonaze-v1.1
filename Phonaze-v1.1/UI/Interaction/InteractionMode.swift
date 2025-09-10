@@ -26,16 +26,25 @@ public enum InteractionMode: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 오버레이가 이벤트를 가로챌지 여부
+    /// 기본(플랫폼 무관) 인터셉트 여부
     public var interceptsLocalGestures: Bool {
         switch self {
         case .directTouch, .pinch: return true
         case .phonaze:             return false
         }
     }
+
+    /// ✅ visionOS에선 WebView 네이티브 입력을 살리기 위해 항상 패스스루
+    public var interceptsLocalGesturesForCurrentPlatform: Bool {
+        #if os(visionOS)
+        return false
+        #else
+        return interceptsLocalGestures
+        #endif
+    }
 }
 
-/// Interaction → Web 레이어로 전달하는 노티 이름 (ConnectivityManager.Noti와 동일 키)
+/// Interaction → Web 레이어로 전달하는 노티 이름
 public enum InteractionNoti {
     public static let tap     = Notification.Name("EXP_TAP")
     public static let scrollH = Notification.Name("EXP_SCROLL_H")

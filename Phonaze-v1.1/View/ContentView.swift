@@ -1,16 +1,20 @@
 import SwiftUI
 
 struct ContentView: View {
+    // 라우팅
     @State private var route: Route = .start
     @State private var selectedPlatform: StreamingPlatform?
+
+    // 모드
     @State private var mode: InteractionMode = .directTouch
 
+    // 의존
     @EnvironmentObject private var connectivity: ConnectivityManager
-    @EnvironmentObject private var focusTracker: FocusTracker
-    @EnvironmentObject private var experimentSession: ExperimentSession
+    @StateObject private var focusTracker = FocusTracker()
+    @State private var experimentSession: ExperimentSession?
 
     enum Route: Hashable {
-        case start, disclaimer, platformPicker, web, selectTask, scrollTask, connection, about
+        case start, disclaimer, platformPicker, web, selectTask, scrollTask, connection
     }
 
     var body: some View {
@@ -22,8 +26,7 @@ struct ContentView: View {
                     onSelectMediaBrowsing: { route = .disclaimer },
                     onOpenScrollTask:     { route = .scrollTask },
                     onOpenSelectTask:     { route = .selectTask },
-                    onOpenConnection:     { route = .connection },
-                    onOpenAbout:          { route = .about }
+                    onOpenConnection:     { route = .connection }
                 )
                 .environmentObject(connectivity)
                 .onChange(of: mode) { _, new in
@@ -31,107 +34,86 @@ struct ContentView: View {
                 }
 
             case .disclaimer:
-                VStack(spacing: 0) {
-                    NavigationHeader(
-                        title: "Research Disclaimer",
-                        showBackButton: true,
-                        onBack: { route = .start }
-                    )
-                    ResearchDisclaimerView(
-                        onConfirm: { route = .platformPicker },
-                        onCancel: { route = .start }
-                    )
-                }
-                .background(Color.black.opacity(0.9))
+                ResearchDisclaimerView(onConfirm: {
+                    route = .platformPicker
+                }, onCancel: <#() -> Void#>)
+                .overlay(backButton { route = .start }, alignment: .topLeading)
 
             case .platformPicker:
-                VStack(spacing: 0) {
-                    NavigationHeader(
-                        title: "Select Platform",
-                        showBackButton: true,
-                        onBack: { route = .disclaimer }
-                    )
-                    PlatformPickerView(
-                        onPick: { platform in
-                            selectedPlatform = platform
-                            var cfg = experimentSession.config
-                            cfg.platform = platform.rawValue
-                            cfg.interactionMode = mode.rawValue
-                            cfg.taskType = "mediaBrowsing"
-                            experimentSession.startOrContinue()
-                            connectivity.sendMode(mode)
-                            route = .web
-                        }
-                    )
-                }
+                PlatformPickerView(
+                    onPick: { platform in
+                        selectedPlatform = platform
+                        var cfg = ExperimentConfig.default(participantID: "P\(Int(Date().timeIntervalSince1970))")
+                        cfg.platform = platform.rawValue
+                        cfg.interactionMode = mode.rawValue
+                        cfg.taskType = "browsing"
+
+                        let session = ExperimentSession(
+                            config: cfg,
+                            focusTracker: focusTracker,
+                            sender: { msg in connectivity.sendRaw(msg) }
+                        )
+                        experimentSession = session
+                        connectivity.setExperimentSession(session)
+                        connectivity.setFocusTracker(focusTracker)
+                        session.startOrContinue()
+
+                        connectivity.sendMode(mode)
+                        route = .web
+                    },
+                    onBack: { route = .disclaimer }
+                )
+                .overlay(backButton { route = .disclaimer }, alignment: .topLeading)
 
             case .web:
                 if let p = selectedPlatform {
-                    ZStack {
-                        PlatformWebView(platform: p)
-                            .environmentObject(connectivity)
-                            .environmentObject(focusTracker)
-                            .environmentObject(experimentSession)
-                            .overlay(InteractionOverlay(mode: mode))
-                        
-                        // Web view needs floating header for better visibility
-                        VStack {
-                            HStack {
-                                Button(action: { route = .platformPicker }) {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "chevron.left")
-                                            .font(.system(size: 16, weight: .semibold))
-                                        Text("Back")
-                                            .font(.system(size: 16, weight: .medium))
-                                    }
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(Color.black.opacity(0.5))
-                                    .background(.ultraThinMaterial)
-                                    .cornerRadius(20)
-                                }
-                                
-                                Spacer()
-                                
-                                // Mode badge
-                                Text(mode == .phonaze ? "Phonaze" :
-                                     mode == .pinch   ? "Pinch" : "Direct Touch")
-                                    .font(.footnote)
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(Color.black.opacity(0.5))
-                                    .background(.ultraThinMaterial)
-                                    .cornerRadius(20)
-                            }
-                            .padding(16)
-                            
-                            Spacer()
-                        }
-                    }
-                    .transition(.opacity.combined(with: .scale))
+                    PlatformWebView(platform: p)
+                        .environmentObject(connectivity)
+                        .overlay(InteractionOverlay(mode: mode)) // ✅ visionOS에선 자동 패스스루
+                        .overlay(backButton { route = .platformPicker }, alignment: .topLeading)
+                        .transition(.opacity.combined(with: .scale))
                 }
 
             case .selectTask:
-                SelectGameView(onBack: { route = .start })
+                SelectGameView()
                     .environmentObject(connectivity)
+                    .overlay(modeBadge, alignment: .topTrailing)
+                    .overlay(backButton { route = .start }, alignment: .topLeading)
 
             case .scrollTask:
-                ScrollGameView(onBack: { route = .start })
+                ScrollGameView()
                     .environmentObject(connectivity)
+                    .overlay(modeBadge, alignment: .topTrailing)
+                    .overlay(backButton { route = .start }, alignment: .topLeading)
 
             case .connection:
                 ConnectionView(onDone: { route = .start })
                     .environmentObject(connectivity)
-                    
-            case .about:
-                AboutLogsView(onBack: { route = .start })
-                    .environmentObject(experimentSession)
-                    .environmentObject(connectivity)
+                    .overlay(backButton { route = .start }, alignment: .topLeading)
             }
         }
         .task { connectivity.start() }
-        .onAppear { connectivity.sendMode(mode) }
+        .onAppear { connectivity.sendMode(mode) } // 초기 모드 전파
+    }
+
+    // MARK: - UI helpers
+
+    private func backButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label("Back", systemImage: "chevron.left")
+                .font(.headline)
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(.ultraThinMaterial, in: Capsule())
+        }
+        .padding(16)
+    }
+
+    private var modeBadge: some View {
+        Text(mode == .phonaze ? "Phonaze (iPhone)" :
+             mode == .pinch   ? "Pinch" : "Direct Touch")
+            .font(.footnote)
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(.ultraThinMaterial, in: Capsule())
+            .padding(16)
     }
 }
