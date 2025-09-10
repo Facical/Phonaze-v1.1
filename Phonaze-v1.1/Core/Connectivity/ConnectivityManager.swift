@@ -220,3 +220,10 @@ extension ConnectivityManager: MCSessionDelegate {
     func session(_ session: MCSession, didStartReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, with progress: Progress) {}
     func session(_ session: MCSession, didFinishReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, at localURL: URL?, withError error: Error?) {}
 }
+
+extension ConnectivityManager {
+    func sendMode(_ mode: InteractionMode) {
+        // WireMessage.modeSet 사용 (MessageProtocol.swift에 정의되어 있어야 함)
+        sendWire(.modeSet(.init(mode: mode.rawValue)))
+    }
+}

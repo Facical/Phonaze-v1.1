@@ -10,14 +10,18 @@ struct StartView: View {
     let onOpenScrollTask: () -> Void
     let onOpenSelectTask: () -> Void
     let onOpenConnection: () -> Void
+    
+    @Binding var mode : InteractionMode
 
     /// 기본 이니셜라이저: 미연결 콜백은 no-op
     init(
+        mode: Binding<InteractionMode>,
         onSelectMediaBrowsing: @escaping () -> Void = {},
         onOpenScrollTask: @escaping () -> Void = {},
         onOpenSelectTask: @escaping () -> Void = {},
         onOpenConnection: @escaping () -> Void = {}
     ) {
+        _mode = mode
         self.onSelectMediaBrowsing = onSelectMediaBrowsing
         self.onOpenScrollTask = onOpenScrollTask
         self.onOpenSelectTask = onOpenSelectTask
@@ -31,6 +35,8 @@ struct StartView: View {
 
             VStack(spacing: 24) {
                 header
+                
+                InteractionModePicker(mode: $mode)
 
                 // 메인 카드(미디어 브라우징)
                 TaskCard(
