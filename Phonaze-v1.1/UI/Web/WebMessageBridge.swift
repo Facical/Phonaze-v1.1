@@ -54,4 +54,24 @@ enum WebMessageBridge {
         })();
         """
     }
+    
+    static func hoverClickJS() -> String {
+            return """
+            (function(){
+              try {
+                var hoveredElements = document.querySelectorAll(':hover');
+                if (hoveredElements.length > 0) {
+                  // querySelectorAll은 DOM 순서대로 요소를 반환하므로,
+                  // 가장 마지막 요소가 사용자가 보고 있는 가장 구체적인(자식) 요소입니다.
+                  var targetElement = hoveredElements[hoveredElements.length - 1];
+                  
+                  // 실제 클릭 이벤트를 발생시킵니다.
+                  targetElement.click();
+                }
+              } catch(e) {
+                console.log('Hover click failed: ' + e);
+              }
+            })();
+            """
+        }
 }

@@ -1,3 +1,5 @@
+// Phonaze-v1.1/UI/Web/WebViewModel.swift
+
 import Foundation
 import WebKit
 
@@ -20,26 +22,12 @@ final class WebViewModel: NSObject, ObservableObject {
     func load(platform: StreamingPlatform, in webView: WKWebView) {
         load(urlString: platform.urlString, in: webView)
     }
-
-    func reload(_ webView: WKWebView) {
-        webView.reload()
-    }
-
-    func goBack(_ webView: WKWebView) {
-        if webView.canGoBack { webView.goBack() }
-    }
-
-    func goForward(_ webView: WKWebView) {
-        if webView.canGoForward { webView.goForward() }
-    }
 }
 
 // MARK: - WKNavigationDelegate
 extension WebViewModel: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         isLoading = true
-        canGoBack = webView.canGoBack
-        canGoForward = webView.canGoForward
         progress = 0
     }
 
@@ -51,29 +39,7 @@ extension WebViewModel: WKNavigationDelegate {
         if let u = webView.url?.absoluteString { urlString = u }
         progress = 1
         
-        // Inject enhancement script after page load
-        let enhanceScript = """
-        (function() {
-            // Remove blocking overlays
-            document.querySelectorAll('[class*="overlay"], [class*="modal-backdrop"]').forEach(function(el) {
-                if (el.style.pointerEvents !== 'none') {
-                    el.style.pointerEvents = 'none';
-                }
-            });
-            
-            // Make video controls accessible
-            document.querySelectorAll('video').forEach(function(video) {
-                video.setAttribute('controls', 'true');
-            });
-            
-            // Fix close buttons
-            document.querySelectorAll('[aria-label*="close"], [aria-label*="Close"], button[class*="close"]').forEach(function(btn) {
-                btn.style.pointerEvents = 'auto';
-                btn.style.zIndex = '999999';
-            });
-        })();
-        """
-        webView.evaluateJavaScript(enhanceScript, completionHandler: nil)
+        // ✅ [수정] 불필요한 스크립트 주입을 제거합니다.
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

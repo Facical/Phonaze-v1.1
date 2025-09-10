@@ -8,9 +8,10 @@ enum WireMessage: Codable, Equatable {
     case modeSet(ModeSet)          // "directTouch" | "pinch" | "phonaze"
     case webTap(WebTap)            // 탭 좌표: [0,1] 정규화
     case webScroll(WebScroll)      // 스크롤: dx, dy (pt 단위, 상대)
+    case webHoverTap // ✅ [추가] 시선이 머무는 곳을 탭하는 신호
 
     enum CodingKeys: String, CodingKey { case type, payload }
-    enum Kind: String, Codable { case hello, ping, pong, modeSet, webTap, webScroll }
+    enum Kind: String, Codable { case hello, ping, pong, modeSet, webTap, webScroll, webHoverTap }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -21,6 +22,7 @@ enum WireMessage: Codable, Equatable {
         case .modeSet:  self = .modeSet(try c.decode(ModeSet.self,forKey: .payload))
         case .webTap:   self = .webTap(try c.decode(WebTap.self,  forKey: .payload))
         case .webScroll:self = .webScroll(try c.decode(WebScroll.self,forKey: .payload))
+        case .webHoverTap: self = .webHoverTap
         }
     }
     func encode(to encoder: Encoder) throws {
@@ -32,6 +34,7 @@ enum WireMessage: Codable, Equatable {
         case .modeSet(let p):  try c.encode(Kind.modeSet, forKey: .type); try c.encode(p, forKey: .payload)
         case .webTap(let p):   try c.encode(Kind.webTap,  forKey: .type); try c.encode(p, forKey: .payload)
         case .webScroll(let p):try c.encode(Kind.webScroll,forKey: .type);try c.encode(p, forKey: .payload)
+        case .webHoverTap:     try c.encode(Kind.webHoverTap, forKey: .type)
         }
     }
 }

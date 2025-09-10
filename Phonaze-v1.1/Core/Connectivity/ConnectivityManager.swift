@@ -29,6 +29,7 @@ final class ConnectivityManager: NSObject, ObservableObject {
         static let scrollH = Notification.Name("EXP_SCROLL_H")
         static let scrollV = Notification.Name("EXP_SCROLL_V")
         static let tap     = Notification.Name("EXP_TAP")
+        static let hoverTap = Notification.Name("EXP_HOVER_TAP")
     }
 
     // MARK: - Lifecycle
@@ -131,6 +132,9 @@ final class ConnectivityManager: NSObject, ObservableObject {
                 NotificationCenter.default.post(name: Noti.scrollV, object: nil, userInfo: ["dy": s.dy])
             }
             experimentSession?.log(kind: "web_scroll", payload: ["dx": "\(s.dx)", "dy": "\(s.dy)"])
+        case .webHoverTap:
+                NotificationCenter.default.post(name: Noti.hoverTap, object: nil)
+                experimentSession?.log(kind: "web_hover_tap")
         }
     }
 

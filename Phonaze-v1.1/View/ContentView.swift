@@ -1,3 +1,5 @@
+// Phonaze-v1.1/View/ContentView.swift
+
 import SwiftUI
 
 struct ContentView: View {
@@ -36,7 +38,9 @@ struct ContentView: View {
             case .disclaimer:
                 ResearchDisclaimerView(onConfirm: {
                     route = .platformPicker
-                }, onCancel: <#() -> Void#>)
+                }, onCancel: {
+                    route = .start
+                })
                 .overlay(backButton { route = .start }, alignment: .topLeading)
 
             case .platformPicker:
@@ -69,22 +73,22 @@ struct ContentView: View {
                 if let p = selectedPlatform {
                     PlatformWebView(platform: p)
                         .environmentObject(connectivity)
-                        .overlay(InteractionOverlay(mode: mode)) // ✅ visionOS에선 자동 패스스루
+                        // ✅ [핵심 수정] InteractionOverlay 제거.
+                        // 이제 WebView가 Vision Pro의 네이티브 입력을 직접 받습니다.
+                        // .overlay(InteractionOverlay(mode: mode))
                         .overlay(backButton { route = .platformPicker }, alignment: .topLeading)
                         .transition(.opacity.combined(with: .scale))
                 }
 
             case .selectTask:
-                SelectGameView()
+                SelectGameView(onBack: { route = .start }) // Back button 추가
                     .environmentObject(connectivity)
                     .overlay(modeBadge, alignment: .topTrailing)
-                    .overlay(backButton { route = .start }, alignment: .topLeading)
 
             case .scrollTask:
-                ScrollGameView()
+                ScrollGameView(onBack: { route = .start }) // Back button 추가
                     .environmentObject(connectivity)
                     .overlay(modeBadge, alignment: .topTrailing)
-                    .overlay(backButton { route = .start }, alignment: .topLeading)
 
             case .connection:
                 ConnectionView(onDone: { route = .start })

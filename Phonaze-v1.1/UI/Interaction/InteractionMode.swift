@@ -49,4 +49,5 @@ public enum InteractionNoti {
     public static let tap     = Notification.Name("EXP_TAP")
     public static let scrollH = Notification.Name("EXP_SCROLL_H")
     public static let scrollV = Notification.Name("EXP_SCROLL_V")
+    public static let hoverTap = Notification.Name("EXP_HOVER_TAP")
 }
