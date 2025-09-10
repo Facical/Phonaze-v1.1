@@ -13,13 +13,13 @@ struct GameInteraction {
 
 struct SelectGameView: View {
     @EnvironmentObject var connectivity: ConnectivityManager
+    var onBack: (() -> Void)? = nil  // Add back callback
 
     // --- Basic Settings ---
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
-    private let panelChangeInterval: TimeInterval = 1.0
 
     // --- Game State Variables ---
-    @State private var gameState: GamePhase = .startScreen // Manages game phases (start, playing, results)
+    @State private var gameState: GamePhase = .startScreen
     @State private var showRoundSelection = false
 
     // --- Round and Score ---
@@ -34,12 +34,11 @@ struct SelectGameView: View {
     // --- Target and Input Management ---
     @State private var currentTargetIndex: Int?
     @State private var hoveredIndex: Int?
-    @State private var targetChangeTimer: Timer?
+    @State private var hasSelectedCurrentTarget = false
     
     // --- Data Recording ---
     @State private var interactions: [GameInteraction] = []
     
-    // Enumeration representing game phases
     enum GamePhase {
         case startScreen
         case playing
@@ -47,43 +46,52 @@ struct SelectGameView: View {
     }
 
     var body: some View {
-        VStack(spacing: 20) {
-            switch gameState {
-            case .startScreen:
-                startScreenView
-            case .playing:
-                gamePlayingView
-            case .results:
-                gameResultsView
+        VStack(spacing: 0) {
+            // Navigation Header
+            if let onBack {
+                NavigationHeader(
+                    title: "Select Panel Game",
+                    showBackButton: true,
+                    onBack: onBack
+                )
             }
+            
+            // Game Content
+            VStack(spacing: 20) {
+                switch gameState {
+                case .startScreen:
+                    startScreenView
+                case .playing:
+                    gamePlayingView
+                case .results:
+                    gameResultsView
+                }
+            }
+            .padding(20)
+            .frame(maxWidth: 400, maxHeight: .infinity)
         }
-        .padding(20)
-        .frame(width: 400, height: 600)
-        // Score selection dialog
+        .background(Color.black.opacity(0.9))
         .confirmationDialog("Select Target Score", isPresented: $showRoundSelection, titleVisibility: .visible) {
             Button("10 Points") { setRoundsAndStart(10) }
             Button("15 Points") { setRoundsAndStart(15) }
             Button("20 Points") { setRoundsAndStart(20) }
         }
-        // Receive iPhone message
         .onChange(of: connectivity.lastReceivedMessage) { _, newMessage in
             if newMessage.hasPrefix("TAP") {
-                // When receiving TAP signal from iPhone, always process selection of yellow panel (target)
                 if let target = currentTargetIndex {
                     processSelection(selectedIndex: target, via: "iPhone")
-                } else {
-                    print("Received TAP, but currentTargetIndex is nil (cannot process selection)")
                 }
             }
         }
         .onDisappear(perform: stopGame)
     }
 
-    // MARK: - Subviews for each GamePhase
+    // MARK: - Subviews
     
-    /// 1. Start screen (Start Game button)
     private var startScreenView: some View {
         VStack(spacing: 40) {
+            Spacer()
+            
             Text("Select Panel Game")
                 .font(.largeTitle).bold()
             
@@ -94,15 +102,18 @@ struct SelectGameView: View {
                 .padding(.horizontal)
             
             Button("Start Game") {
-                // Show score selection dialog
                 showRoundSelection = true
             }
             .font(.title)
             .padding()
+            .background(Color.blue)
+            .foregroundColor(.white)
+            .cornerRadius(12)
+            
+            Spacer()
         }
     }
     
-    /// 2. Game in progress screen
     private var gamePlayingView: some View {
         VStack(spacing: 20) {
             Text("Select the Yellow Panel").font(.title2).bold()
@@ -123,9 +134,10 @@ struct SelectGameView: View {
         }
     }
     
-    /// 3. Game results screen
     private var gameResultsView: some View {
         VStack(spacing: 25) {
+            Spacer()
+            
             Text("Game Over!").font(.title).bold()
             
             VStack(alignment: .leading, spacing: 15) {
@@ -141,18 +153,28 @@ struct SelectGameView: View {
 
             HStack(spacing: 20) {
                 if let csvURL = createCSVFile() {
-                    ShareLink(item: csvURL) { Label("Share Results (CSV)", systemImage: "square.and.arrow.up") }
+                    ShareLink(item: csvURL) {
+                        Label("Share Results (CSV)", systemImage: "square.and.arrow.up")
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(Color.green)
+                            .cornerRadius(10)
+                    }
                 }
                 Button("Play Again") {
-                    // 모든 상태를 초기 시작 화면으로 리셋
                     resetToStartScreen()
                 }
+                .foregroundColor(.white)
+                .padding()
+                .background(Color.blue)
+                .cornerRadius(10)
             }
             .padding(.top, 10)
+            
+            Spacer()
         }
     }
     
-    /// Common panel view
     private func panelView(for index: Int) -> some View {
         Rectangle()
             .fill(panelColor(for: index))
@@ -168,9 +190,8 @@ struct SelectGameView: View {
             }
     }
 
-    // MARK: - Game Logic
+    // MARK: - Game Logic (unchanged)
     
-    /// Function to set score and start game immediately
     private func setRoundsAndStart(_ count: Int) {
         totalRounds = count
         startGame()
@@ -182,17 +203,9 @@ struct SelectGameView: View {
         totalGameTime = 0
         gameStartTime = Date()
         interactions = []
-        gameState = .playing // Change game state to 'in progress'
-        
+        gameState = .playing
+        hasSelectedCurrentTarget = false
         setRandomTarget()
-        
-        targetChangeTimer?.invalidate()
-        targetChangeTimer = Timer.scheduledTimer(withTimeInterval: panelChangeInterval, repeats: true) { _ in
-            if gameState == .playing {
-                failCount += 1
-                setRandomTarget()
-            }
-        }
     }
 
     private func stopGame() {
@@ -202,8 +215,6 @@ struct SelectGameView: View {
             }
         }
         gameState = .results
-        targetChangeTimer?.invalidate()
-        targetChangeTimer = nil
     }
 
     private func resetToStartScreen() {
@@ -211,6 +222,7 @@ struct SelectGameView: View {
         failCount = 0
         interactions = []
         currentTargetIndex = nil
+        hasSelectedCurrentTarget = false
         gameState = .startScreen
     }
     
@@ -220,16 +232,15 @@ struct SelectGameView: View {
             newTarget = Int.random(in: 0..<16)
         } while newTarget == currentTargetIndex
         currentTargetIndex = newTarget
+        hasSelectedCurrentTarget = false
     }
 
-    // MARK: - Input Processing
-    private func processSelection(via inputMethod: String) {
-        guard let selected = hoveredIndex else { return }
-        processSelection(selectedIndex: selected, via: inputMethod)
-    }
-    
     private func processSelection(selectedIndex: Int, via inputMethod: String) {
-        guard gameState == .playing, let target = currentTargetIndex, let start = gameStartTime else { return }
+        guard gameState == .playing,
+              let target = currentTargetIndex,
+              let start = gameStartTime,
+              !hasSelectedCurrentTarget
+        else { return }
 
         let successful = (selectedIndex == target)
         
@@ -242,21 +253,25 @@ struct SelectGameView: View {
         )
         interactions.append(interaction)
 
+        hasSelectedCurrentTarget = true
+        
         if successful {
             successCount += 1
             if successCount >= totalRounds {
-                stopGame() // End game
+                stopGame()
             } else {
-                // On success, reset timer and immediately move to next target
-                targetChangeTimer?.fireDate = Date().addingTimeInterval(panelChangeInterval)
-                setRandomTarget()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    setRandomTarget()
+                }
             }
         } else {
             failCount += 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                setRandomTarget()
+            }
         }
     }
 
-    // MARK: - Helpers
     private func panelColor(for index: Int) -> Color {
         if gameState == .playing && index == currentTargetIndex {
             return .yellow

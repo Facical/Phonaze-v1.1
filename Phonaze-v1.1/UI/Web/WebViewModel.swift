@@ -14,7 +14,6 @@ final class WebViewModel: NSObject, ObservableObject {
         self.urlString = urlString
         guard let url = URL(string: urlString) else { return }
         var req = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30)
-        // 필요 시 헤더 추가
         webView.load(req)
     }
 
@@ -35,8 +34,8 @@ final class WebViewModel: NSObject, ObservableObject {
     }
 }
 
-// MARK: - WKNavigationDelegate / WKUIDelegate
-extension WebViewModel: WKNavigationDelegate, WKUIDelegate {
+// MARK: - WKNavigationDelegate
+extension WebViewModel: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         isLoading = true
         canGoBack = webView.canGoBack
@@ -49,13 +48,40 @@ extension WebViewModel: WKNavigationDelegate, WKUIDelegate {
         canGoBack = webView.canGoBack
         canGoForward = webView.canGoForward
         pageTitle = webView.title ?? ""
-        // 현재 URL 반영
         if let u = webView.url?.absoluteString { urlString = u }
         progress = 1
+        
+        // Inject enhancement script after page load
+        let enhanceScript = """
+        (function() {
+            // Remove blocking overlays
+            document.querySelectorAll('[class*="overlay"], [class*="modal-backdrop"]').forEach(function(el) {
+                if (el.style.pointerEvents !== 'none') {
+                    el.style.pointerEvents = 'none';
+                }
+            });
+            
+            // Make video controls accessible
+            document.querySelectorAll('video').forEach(function(video) {
+                video.setAttribute('controls', 'true');
+            });
+            
+            // Fix close buttons
+            document.querySelectorAll('[aria-label*="close"], [aria-label*="Close"], button[class*="close"]').forEach(function(btn) {
+                btn.style.pointerEvents = 'auto';
+                btn.style.zIndex = '999999';
+            });
+        })();
+        """
+        webView.evaluateJavaScript(enhanceScript, completionHandler: nil)
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        isLoading = false
+        print("Navigation failed: \(error.localizedDescription)")
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        // 메모리 압박 등으로 프로세스 리셋 시 재로드
         webView.reload()
     }
 
@@ -64,15 +90,24 @@ extension WebViewModel: WKNavigationDelegate, WKUIDelegate {
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-        // 필요 시 도메인 필터링/허용
         decisionHandler(.allow)
     }
+}
 
-    // 팝업/새 창 열기 처리
+// MARK: - WKUIDelegate
+extension WebViewModel: WKUIDelegate {
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         if navigationAction.targetFrame == nil {
             webView.load(navigationAction.request)
         }
         return nil
+    }
+    
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        completionHandler()
+    }
+    
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        completionHandler(true)
     }
 }

@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 앱 홈 화면.
 /// - Media Browsing Task: onSelectMediaBrowsing() 호출 (ContentView에서 디스클레이머 → 플랫폼 선택으로 라우팅)
-/// - Scroll / Select / Connection: 필요 시 외부에서 콜백 연결(기본은 no-op)
+/// - Scroll / Select / Connection / About: 필요 시 외부에서 콜백 연결(기본은 no-op)
 struct StartView: View {
     @EnvironmentObject private var connectivity: ConnectivityManager
 
@@ -10,6 +10,7 @@ struct StartView: View {
     let onOpenScrollTask: () -> Void
     let onOpenSelectTask: () -> Void
     let onOpenConnection: () -> Void
+    let onOpenAbout: () -> Void  // Added About callback
     
     @Binding var mode : InteractionMode
 
@@ -19,13 +20,15 @@ struct StartView: View {
         onSelectMediaBrowsing: @escaping () -> Void = {},
         onOpenScrollTask: @escaping () -> Void = {},
         onOpenSelectTask: @escaping () -> Void = {},
-        onOpenConnection: @escaping () -> Void = {}
+        onOpenConnection: @escaping () -> Void = {},
+        onOpenAbout: @escaping () -> Void = {}  // Added default parameter
     ) {
         _mode = mode
         self.onSelectMediaBrowsing = onSelectMediaBrowsing
         self.onOpenScrollTask = onOpenScrollTask
         self.onOpenSelectTask = onOpenSelectTask
         self.onOpenConnection = onOpenConnection
+        self.onOpenAbout = onOpenAbout
     }
 
     var body: some View {
@@ -72,12 +75,12 @@ struct StartView: View {
                             : "Connect iPhone auxiliary controller",
                         action: onOpenConnection
                     )
-                    // Extra slot (remove if not needed)
+                    // About/Logs card now properly connected
                     TaskCard(
                         icon: "info.circle",
                         title: "About / Logs",
                         description: "Experiment logs & CSV export",
-                        action: { /* Connect if needed */ }
+                        action: onOpenAbout  // Now properly connected
                     )
                 }
 

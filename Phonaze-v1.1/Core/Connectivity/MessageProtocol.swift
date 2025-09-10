@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - JSON 기반 메시지
-enum WireMessage: Codable {
+enum WireMessage: Codable, Equatable {
     case hello(Hello)
     case ping(Ping)
     case pong(Pong)
@@ -36,19 +36,19 @@ enum WireMessage: Codable {
     }
 }
 
-struct Hello: Codable {
-    enum Role: String, Codable { case vision, iphone }
-    struct Caps: Codable { var jsTap: Bool; var nativeScroll: Bool }
+struct Hello: Codable, Equatable {
+    enum Role: String, Codable, Equatable { case vision, iphone }
+    struct Caps: Codable, Equatable { var jsTap: Bool; var nativeScroll: Bool }
     let role: Role
     let version: Int
     let capabilities: Caps
     static let `defaultCaps` = Caps(jsTap: true, nativeScroll: true)
 }
-struct Ping: Codable { let t: TimeInterval }
-struct Pong: Codable { let t: TimeInterval }
-struct ModeSet: Codable { let mode: String } // "directTouch" | "pinch" | "phonaze"
-struct WebTap: Codable { let nx: Double, ny: Double } // [0,1]
-struct WebScroll: Codable { let dx: Double, dy: Double } // pt 상대이동
+struct Ping: Codable, Equatable { let t: TimeInterval }
+struct Pong: Codable, Equatable { let t: TimeInterval }
+struct ModeSet: Codable, Equatable { let mode: String } // "directTouch" | "pinch" | "phonaze"
+struct WebTap: Codable, Equatable { let nx: Double, ny: Double } // [0,1]
+struct WebScroll: Codable, Equatable { let dx: Double, dy: Double } // pt 상대이동
 
 enum MessageCodec {
     static let encoder = JSONEncoder()
