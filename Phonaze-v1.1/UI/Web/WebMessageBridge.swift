@@ -56,22 +56,76 @@ enum WebMessageBridge {
     }
     
     static func hoverClickJS() -> String {
-            return """
-            (function(){
-              try {
-                var hoveredElements = document.querySelectorAll(':hover');
-                if (hoveredElements.length > 0) {
-                  // querySelectorAll은 DOM 순서대로 요소를 반환하므로,
-                  // 가장 마지막 요소가 사용자가 보고 있는 가장 구체적인(자식) 요소입니다.
-                  var targetElement = hoveredElements[hoveredElements.length - 1];
-                  
-                  // 실제 클릭 이벤트를 발생시킵니다.
-                  targetElement.click();
-                }
-              } catch(e) {
-                console.log('Hover click failed: ' + e);
+        return """
+        (function(){
+          try {
+            console.log('HoverClick: Starting');
+            
+            // 방법 1: hover 상태 요소 찾기
+            var hoveredElements = document.querySelectorAll(':hover');
+            if (hoveredElements.length > 0) {
+              var targetElement = hoveredElements[hoveredElements.length - 1];
+              console.log('HoverClick: Found hovered element:', targetElement.tagName);
+              targetElement.click();
+              return;
+            }
+            
+            // 방법 2: 화면 중앙의 요소 클릭 (폴백)
+            var centerX = window.innerWidth / 2;
+            var centerY = window.innerHeight / 2;
+            var centerElement = document.elementFromPoint(centerX, centerY);
+            
+            if (centerElement) {
+              console.log('HoverClick: Clicking center element:', centerElement.tagName);
+              
+              // 포커스 가능한 요소 찾기
+              var clickable = centerElement;
+              while (clickable && !clickable.onclick && clickable.tagName !== 'A' && 
+                     clickable.tagName !== 'BUTTON' && clickable.tagName !== 'INPUT' &&
+                     !clickable.hasAttribute('onclick') && clickable.parentElement) {
+                clickable = clickable.parentElement;
               }
-            })();
-            """
-        }
+              
+              if (clickable) {
+                console.log('HoverClick: Found clickable parent:', clickable.tagName);
+                
+                // 여러 방법으로 클릭 시도
+                clickable.focus && clickable.focus();
+                clickable.click();
+                
+                // MouseEvent 직접 발생
+                var evt = new MouseEvent('click', {
+                  bubbles: true,
+                  cancelable: true,
+                  view: window,
+                  clientX: centerX,
+                  clientY: centerY
+                });
+                clickable.dispatchEvent(evt);
+                
+                // Touch 이벤트도 시도 (모바일 웹용)
+                var touchEvt = new TouchEvent('touchend', {
+                  bubbles: true,
+                  cancelable: true,
+                  view: window,
+                  touches: [],
+                  targetTouches: [],
+                  changedTouches: [new Touch({
+                    identifier: Date.now(),
+                    target: clickable,
+                    clientX: centerX,
+                    clientY: centerY,
+                    pageX: centerX,
+                    pageY: centerY
+                  })]
+                });
+                clickable.dispatchEvent(touchEvt);
+              }
+            }
+          } catch(e) {
+            console.log('HoverClick error: ' + e.toString());
+          }
+        })();
+        """
+    }
 }

@@ -111,6 +111,7 @@ struct WebView: UIViewRepresentable {
         // ConnectivityManager로부터 오는 Notification을 받아 WebView를 제어합니다.
         private func setupRemoteControlHandlers() {
             NotificationCenter.default.publisher(for: InteractionNoti.tap)
+                .receive(on: DispatchQueue.main) 
                 .sink { [weak self] notification in
                     guard let userInfo = notification.userInfo,
                           let nx = userInfo["nx"] as? Double,
@@ -122,6 +123,7 @@ struct WebView: UIViewRepresentable {
                 .store(in: &cancellables)
             
             NotificationCenter.default.publisher(for: InteractionNoti.scrollH)
+                .receive(on: DispatchQueue.main)
                 .sink { [weak self] notification in
                     guard let userInfo = notification.userInfo,
                           let dx = userInfo["dx"] as? Double else { return }
@@ -131,6 +133,7 @@ struct WebView: UIViewRepresentable {
                 .store(in: &cancellables)
 
             NotificationCenter.default.publisher(for: InteractionNoti.scrollV)
+                .receive(on: DispatchQueue.main)
                 .sink { [weak self] notification in
                     guard let userInfo = notification.userInfo,
                           let dy = userInfo["dy"] as? Double else { return }
@@ -138,12 +141,20 @@ struct WebView: UIViewRepresentable {
                     self?.webView?.evaluateJavaScript(js)
                 }
                 .store(in: &cancellables)
-            NotificationCenter.default.publisher(for: InteractionNoti.hoverTap)
-                        .sink { [weak self] _ in
-                            let js = WebMessageBridge.hoverClickJS()
-                            self?.webView?.evaluateJavaScript(js)
+            NotificationCenter.default.publisher(for: ConnectivityManager.Noti.hoverTap)
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    print("PlatformWebView: Executing hoverClickJS")
+                    let js = WebMessageBridge.hoverClickJS()
+                    self?.webView?.evaluateJavaScript(js) { result, error in
+                        if let error = error {
+                            print("HoverClick JS error: \(error)")
+                        } else {
+                            print("HoverClick JS executed successfully")
                         }
-                        .store(in: &cancellables)
+                    }
+                }
+                .store(in: &cancellables)
             
         }
     }

@@ -102,39 +102,40 @@ final class ConnectivityManager: NSObject, ObservableObject {
     }
 
     private func route(_ wm: WireMessage) {
-        switch wm {
-        case .hello(let h):
-            print("HELLO from \(h.role) v\(h.version) caps: jsTap=\(h.capabilities.jsTap) nativeScroll=\(h.capabilities.nativeScroll)")
-            // 필요 시 capabilities 저장
+        // ✅ 모든 NotificationCenter.post를 메인 스레드에서 실행
+        DispatchQueue.main.async { [weak self] in
+            switch wm {
+            case .hello(let h):
+                print("HELLO from \(h.role) v\(h.version)")
 
-        case .ping(let p):
-            // 즉시 pong 회신
-            sendWire(.pong(.init(t: p.t)))
+            case .ping(let p):
+                self?.sendWire(.pong(.init(t: p.t)))
 
-        case .pong(let p):
-            print("PONG latency ~\(Date().timeIntervalSince1970 - p.t) s")
+            case .pong(let p):
+                print("PONG latency ~\(Date().timeIntervalSince1970 - p.t) s")
 
-        case .modeSet(let m):
-            // 모드 전환을 Experiment/State 로깅과 연결
-            experimentSession?.log(kind: "mode_switch", payload: ["mode": m.mode])
+            case .modeSet(let m):
+                self?.experimentSession?.log(kind: "mode_switch", payload: ["mode": m.mode])
 
-        case .webTap(let t):
-            NotificationCenter.default.post(name: Noti.tap, object: nil,
-                                            userInfo: ["nx": t.nx, "ny": t.ny])
-            experimentSession?.log(kind: "web_tap", payload: ["nx": "\(t.nx)", "ny": "\(t.ny)"])
+            case .webTap(let t):
+                NotificationCenter.default.post(name: ConnectivityManager.Noti.tap, object: nil,
+                                                userInfo: ["nx": t.nx, "ny": t.ny])
+                self?.experimentSession?.log(kind: "web_tap", payload: ["nx": "\(t.nx)", "ny": "\(t.ny)"])
 
-        case .webScroll(let s):
-            // H/V로 분해 브로드캐스트 (기존 소비자 호환)
-            if s.dx != 0 {
-                NotificationCenter.default.post(name: Noti.scrollH, object: nil, userInfo: ["dx": s.dx])
+            case .webScroll(let s):
+                if s.dx != 0 {
+                    NotificationCenter.default.post(name: ConnectivityManager.Noti.scrollH, object: nil, userInfo: ["dx": s.dx])
+                }
+                if s.dy != 0 {
+                    NotificationCenter.default.post(name: ConnectivityManager.Noti.scrollV, object: nil, userInfo: ["dy": s.dy])
+                }
+                self?.experimentSession?.log(kind: "web_scroll", payload: ["dx": "\(s.dx)", "dy": "\(s.dy)"])
+                
+            case .webHoverTap:
+                NotificationCenter.default.post(name: ConnectivityManager.Noti.hoverTap, object: nil)
+                self?.experimentSession?.log(kind: "web_hover_tap")
+                print("Received webHoverTap - broadcasting to WebView")
             }
-            if s.dy != 0 {
-                NotificationCenter.default.post(name: Noti.scrollV, object: nil, userInfo: ["dy": s.dy])
-            }
-            experimentSession?.log(kind: "web_scroll", payload: ["dx": "\(s.dx)", "dy": "\(s.dy)"])
-        case .webHoverTap:
-                NotificationCenter.default.post(name: Noti.hoverTap, object: nil)
-                experimentSession?.log(kind: "web_hover_tap")
         }
     }
 
@@ -194,24 +195,25 @@ extension ConnectivityManager: MCNearbyServiceAdvertiserDelegate {
 // MARK: - MCSessionDelegate
 extension ConnectivityManager: MCSessionDelegate {
     func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
-        switch state {
-        case .connected:
-            isConnected = true
-            connectedPeerName = peerID.displayName
-            print("Connected:", peerID.displayName)
-            // handshake
-            // 연결 직후 핸드셰이크
-            sendWire(.hello(.init(role: .vision, version: 1, capabilities: Hello.defaultCaps)))
-            // 선택: 핑 찍기
-            sendWire(.ping(.init(t: Date().timeIntervalSince1970)))
-        case .notConnected:
-            isConnected = false
-            connectedPeerName = nil
-            print("Disconnected:", peerID.displayName)
-        case .connecting:
-            print("Connecting:", peerID.displayName)
-        @unknown default:
-            print("Unknown MC state:", state.rawValue)
+        // ✅ UI 업데이트는 메인 스레드에서
+        DispatchQueue.main.async { [weak self] in
+            switch state {
+            case .connected:
+                self?.isConnected = true
+                self?.connectedPeerName = peerID.displayName
+                print("Connected:", peerID.displayName)
+                // handshake
+                self?.sendWire(.hello(.init(role: .vision, version: 1, capabilities: Hello.defaultCaps)))
+                self?.sendWire(.ping(.init(t: Date().timeIntervalSince1970)))
+            case .notConnected:
+                self?.isConnected = false
+                self?.connectedPeerName = nil
+                print("Disconnected:", peerID.displayName)
+            case .connecting:
+                print("Connecting:", peerID.displayName)
+            @unknown default:
+                print("Unknown MC state:", state.rawValue)
+            }
         }
     }
 
