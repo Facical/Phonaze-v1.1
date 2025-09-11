@@ -80,13 +80,47 @@ struct SelectGameView: View {
             Button("20 Points") { setRoundsAndStart(20) }
         }
         .onChange(of: connectivity.lastReceivedMessage) { _, newMessage in
-            if newMessage.hasPrefix("TAP") {
-                if let target = currentTargetIndex {
-                    processSelection(selectedIndex: target, via: "iPhone")
+            handleRemoteMessage(newMessage)
+        }
+        .onDisappear(perform: stopGame)
+    }
+    
+    private func handleRemoteMessage(_ message: String) {
+        guard gameState == .playing else { return }
+        
+        if message.hasPrefix("TAP") {
+            // 실제로 보고 있는 패널 사용
+            if let hovered = hoveredIndex {
+                processSelection(selectedIndex: hovered, via: "iPhone")
+            } else if let focusedID = focusTracker.currentFocusedID,
+                      focusedID.hasPrefix("panel_"),
+                      let indexStr = focusedID.split(separator: "_").last,
+                      let index = Int(indexStr) {
+                // FocusTracker에서 가져오기
+                processSelection(selectedIndex: index, via: "iPhone")
+            } else {
+                // 아무것도 보고 있지 않을 때는 실패 처리
+                failCount += 1
+                print("TAP received but no panel is being looked at")
+                
+                // 실패도 기록
+                if let target = currentTargetIndex, let start = gameStartTime {
+                    let interaction = GameInteraction(
+                        timestamp: Date().timeIntervalSince(start),
+                        targetPanel: target,
+                        selectedPanel: -1,  // -1은 "no selection"을 의미
+                        wasSuccessful: false,
+                        inputMethod: "iPhone"
+                    )
+                    interactions.append(interaction)
+                }
+                
+                // 다음 타겟으로
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    setRandomTarget()
                 }
             }
         }
-        .onDisappear(perform: stopGame)
     }
 
     // MARK: - Subviews
@@ -126,7 +160,7 @@ struct SelectGameView: View {
                 .foregroundColor(.blue)
                 .padding(.top)
 
-            LazyVGrid(columns: columns, spacing: 10) {
+            LazyVGrid(columns: columns, spacing: 20) {
                 ForEach(0..<16) { index in
                     panelView(for: index)
                 }
@@ -190,10 +224,14 @@ struct SelectGameView: View {
             .onHover { isHovering in
                 if isHovering{
                     hoveredIndex = index
+                    focusTracker.updateCandidate(id: "panel_\(index)")
                     unintendedTracker.startDwell(elementID: "panel_\(index)")
                 } else {
-                    unintendedTracker.endDwell()
-                    hoveredIndex = nil
+                    if hoveredIndex == index {
+                                hoveredIndex = nil
+                                focusTracker.updateCandidate(id: nil)
+                            }
+                            unintendedTracker.endDwell()
                 }
             }
             .onTapGesture {

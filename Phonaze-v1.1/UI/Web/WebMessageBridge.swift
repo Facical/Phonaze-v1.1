@@ -34,28 +34,86 @@ enum WebMessageBridge {
         """
     }
 
-    /// ✅ Vision Pro용 간단한 네이티브 클릭
-    /// 복잡한 좌표 계산 없이 현재 포커스나 시선 위치를 클릭
+    // ✅ Vision Pro 시선 추적 활용 클릭
     static func nativeTapJS() -> String {
         return """
         (function() {
-          try {
-            var centerX = window.innerWidth / 2;
-            var centerY = window.innerHeight / 2;
-            var element = document.elementFromPoint(centerX, centerY);
-            if (element) {
-              var event = new MouseEvent('click', {
-                'view': window,
-                'bubbles': true,
-                'cancelable': true
-              });
-              element.dispatchEvent(event);
-              return 'Center element clicked: ' + element.tagName;
+            try {
+                console.log('Native tap initiated');
+                
+                // 1. 현재 hover 상태인 요소들 찾기 (Vision Pro 시선이 머무는 곳)
+                var hoveredElements = document.querySelectorAll(':hover');
+                console.log('Found', hoveredElements.length, 'hovered elements');
+                
+                if (hoveredElements.length > 0) {
+                    // 가장 깊은(최하위) hover 요소를 클릭
+                    var targetElement = hoveredElements[hoveredElements.length - 1];
+                    console.log('Clicking hovered element:', targetElement.tagName);
+                    
+                    // 실제 클릭 이벤트 발생
+                    var clickEvent = new MouseEvent('click', {
+                        view: window,
+                        bubbles: true,
+                        cancelable: true,
+                        clientX: targetElement.getBoundingClientRect().left + targetElement.offsetWidth / 2,
+                        clientY: targetElement.getBoundingClientRect().top + targetElement.offsetHeight / 2
+                    });
+                    
+                    targetElement.dispatchEvent(clickEvent);
+                    
+                    return 'Clicked element: ' + targetElement.tagName;
+                } else {
+                    // Hover된 요소가 없으면 화면 중앙 클릭 (fallback)
+                    console.log('No hovered element, clicking center');
+                    var centerX = window.innerWidth / 2;
+                    var centerY = window.innerHeight / 2;
+                    var centerElement = document.elementFromPoint(centerX, centerY);
+                    
+                    if (centerElement) {
+                        centerElement.click();
+                        return 'Clicked center element: ' + centerElement.tagName;
+                    }
+                }
+                
+                return 'No element to click';
+            } catch(e) {
+                console.error('Native tap error:', e);
+                return 'Error: ' + e.message;
             }
-            return 'No element found at the center.';
-          } catch(e) {
-            return 'Error: ' + e.message;
-          }
+        })();
+        """
+    }
+
+    // ✅ 시선 추적 활성화 스크립트
+    static func enableGazeTrackingJS() -> String {
+        return """
+        (function() {
+            console.log('Enabling gaze tracking for Vision Pro');
+            
+            // Vision Pro의 시선 추적을 위한 CSS 추가
+            var style = document.createElement('style');
+            style.textContent = `
+                /* Vision Pro gaze hover feedback */
+                *:hover {
+                    outline: 2px solid rgba(0, 122, 255, 0.3) !important;
+                    outline-offset: 2px !important;
+                    transition: outline 0.15s ease-in-out !important;
+                }
+                
+                a:hover, button:hover, input:hover, select:hover, textarea:hover {
+                    outline: 2px solid rgba(0, 122, 255, 0.5) !important;
+                    background-color: rgba(0, 122, 255, 0.05) !important;
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // 현재 hover 요소 추적
+            window.__visionProCurrentHover = null;
+            document.addEventListener('mouseover', function(e) {
+                window.__visionProCurrentHover = e.target;
+            }, true);
+            
+            return 'Gaze tracking enabled';
         })();
         """
     }

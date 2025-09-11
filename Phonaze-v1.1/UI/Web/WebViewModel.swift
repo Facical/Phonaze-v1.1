@@ -38,8 +38,8 @@ extension WebViewModel: WKNavigationDelegate {
         pageTitle = webView.title ?? ""
         if let u = webView.url?.absoluteString { urlString = u }
         progress = 1
-        
-        // ✅ [수정] 불필요한 스크립트 주입을 제거합니다.
+        injectGazeTrackingScript(into: webView)
+
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -57,6 +57,23 @@ extension WebViewModel: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
         decisionHandler(.allow)
+    }
+}
+
+private func injectGazeTrackingScript(into webView: WKWebView) {
+    let script = WebMessageBridge.enableGazeTrackingJS()
+    
+    webView.evaluateJavaScript(script) { result, error in
+        if let error = error {
+            print("❌ Failed to inject gaze tracking: \(error.localizedDescription)")
+        } else {
+            print("✅ Gaze tracking script injected successfully")
+        }
+    }
+    
+    // Netflix/YouTube 특별 처리
+    if urlString.contains("netflix.com") || urlString.contains("youtube.com") {
+        injectStreamingPlatformFixes(into: webView)
     }
 }
 

@@ -108,6 +108,7 @@ struct WebView: UIViewRepresentable {
             NotificationCenter.default.publisher(for: ConnectivityManager.Noti.hoverTap)
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] _ in
+                    print("📱 Received hover tap signal")
                     self?.performNativeTap()
                 }
                 .store(in: &cancellables)
@@ -118,6 +119,7 @@ struct WebView: UIViewRepresentable {
                 .sink { [weak self] notification in
                     guard let userInfo = notification.userInfo,
                           let dx = userInfo["dx"] as? Double else { return }
+                    print("📱 Received scroll H: \(dx)")
                     let js = WebMessageBridge.scrollJS(dx: dx, dy: 0)
                     self?.webView?.evaluateJavaScript(js)
                 }
