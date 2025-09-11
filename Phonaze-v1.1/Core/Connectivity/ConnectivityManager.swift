@@ -5,7 +5,6 @@ import SwiftUI
 /// Vision Pro Host/Advertiser
 @MainActor
 final class ConnectivityManager: NSObject, ObservableObject {
-    // 통일된 서비스 타입 (iPhone 클라이언트와 동일 문자열로 맞추세요)
     static let serviceType = "phonaze-service"
 
     // MARK: - MC
@@ -16,20 +15,20 @@ final class ConnectivityManager: NSObject, ObservableObject {
     // MARK: - Published UI State
     @Published private(set) var isConnected = false
     @Published private(set) var connectedPeerName: String?
-    @Published var lastReceivedMessage: String = ""          // 레거시/디버그 표시용
-    @Published var lastReceivedWire: WireMessage?            // 신규 JSON 메시지
+    @Published var lastReceivedMessage: String = ""
+    @Published var lastReceivedWire: WireMessage?
 
-    // MARK: - External references (optional)
+    // MARK: - External references
     weak var gameState: GameState?
     weak var experimentSession: ExperimentSession?
     weak var focusTracker: FocusTracker?
 
-    // MARK: - Notifications (Scroll/Tap)
+    // MARK: - Notifications
     struct Noti {
         static let scrollH = Notification.Name("EXP_SCROLL_H")
         static let scrollV = Notification.Name("EXP_SCROLL_V")
         static let tap     = Notification.Name("EXP_TAP")
-        static let hoverTap = Notification.Name("EXP_HOVER_TAP")
+        static let hoverTap = Notification.Name("EXP_HOVER_TAP") // ✅ iPhone의 시선 기반 탭
     }
 
     // MARK: - Lifecycle
@@ -51,7 +50,6 @@ final class ConnectivityManager: NSObject, ObservableObject {
         connectedPeerName = nil
         print("ConnectivityManager: stopped")
     }
-
 
     // External refs
     func setGameState(_ gameState: GameState) { self.gameState = gameState }
@@ -79,7 +77,7 @@ final class ConnectivityManager: NSObject, ObservableObject {
         }
     }
 
-    // Broadcast helpers (visionOS → iPhone, optional)
+    // Broadcast helpers
     func broadcastFocus(_ id: String) { sendRaw(EXPMessage.stateFocus(id)) }
     func broadcastTarget(_ id: String) { sendRaw(EXPMessage.stateTarget(id)) }
     func broadcastPhase(_ p: EXPPhase) { sendRaw(EXPMessage.statePhase(p)) }
@@ -102,7 +100,6 @@ final class ConnectivityManager: NSObject, ObservableObject {
     }
 
     private func route(_ wm: WireMessage) {
-        // ✅ 모든 NotificationCenter.post를 메인 스레드에서 실행
         DispatchQueue.main.async { [weak self] in
             switch wm {
             case .hello(let h):
@@ -118,6 +115,7 @@ final class ConnectivityManager: NSObject, ObservableObject {
                 self?.experimentSession?.log(kind: "mode_switch", payload: ["mode": m.mode])
 
             case .webTap(let t):
+                // ✅ 레거시 좌표 기반 탭 (필요시 유지)
                 NotificationCenter.default.post(name: ConnectivityManager.Noti.tap, object: nil,
                                                 userInfo: ["nx": t.nx, "ny": t.ny])
                 self?.experimentSession?.log(kind: "web_tap", payload: ["nx": "\(t.nx)", "ny": "\(t.ny)"])
@@ -132,9 +130,10 @@ final class ConnectivityManager: NSObject, ObservableObject {
                 self?.experimentSession?.log(kind: "web_scroll", payload: ["dx": "\(s.dx)", "dy": "\(s.dy)"])
                 
             case .webHoverTap:
+                // ✅ iPhone의 시선 기반 탭 신호 - Vision Pro가 현재 시선 위치를 자동 클릭
+                print("ConnectivityManager: Received webHoverTap - triggering native tap")
                 NotificationCenter.default.post(name: ConnectivityManager.Noti.hoverTap, object: nil)
-                self?.experimentSession?.log(kind: "web_hover_tap")
-                print("Received webHoverTap - broadcasting to WebView")
+                self?.experimentSession?.log(kind: "web_hover_tap", payload: [:])
             }
         }
     }
@@ -195,7 +194,6 @@ extension ConnectivityManager: MCNearbyServiceAdvertiserDelegate {
 // MARK: - MCSessionDelegate
 extension ConnectivityManager: MCSessionDelegate {
     func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
-        // ✅ UI 업데이트는 메인 스레드에서
         DispatchQueue.main.async { [weak self] in
             switch state {
             case .connected:
@@ -229,7 +227,6 @@ extension ConnectivityManager: MCSessionDelegate {
 
 extension ConnectivityManager {
     func sendMode(_ mode: InteractionMode) {
-        // WireMessage.modeSet 사용 (MessageProtocol.swift에 정의되어 있어야 함)
         sendWire(.modeSet(.init(mode: mode.rawValue)))
     }
 }

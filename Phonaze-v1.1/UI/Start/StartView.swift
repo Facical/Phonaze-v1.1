@@ -1,8 +1,6 @@
 import SwiftUI
 
 /// 앱 홈 화면.
-/// - Media Browsing Task: onSelectMediaBrowsing() 호출 (ContentView에서 디스클레이머 → 플랫폼 선택으로 라우팅)
-/// - Scroll / Select / Connection / About: 필요 시 외부에서 콜백 연결(기본은 no-op)
 struct StartView: View {
     @EnvironmentObject private var connectivity: ConnectivityManager
 
@@ -10,18 +8,18 @@ struct StartView: View {
     let onOpenScrollTask: () -> Void
     let onOpenSelectTask: () -> Void
     let onOpenConnection: () -> Void
-    let onOpenAbout: () -> Void  // Added About callback
+    let onOpenAbout: () -> Void
     
     @Binding var mode : InteractionMode
 
-    /// 기본 이니셜라이저: 미연결 콜백은 no-op
+    /// 기본 이니셜라이저
     init(
         mode: Binding<InteractionMode>,
         onSelectMediaBrowsing: @escaping () -> Void = {},
         onOpenScrollTask: @escaping () -> Void = {},
         onOpenSelectTask: @escaping () -> Void = {},
         onOpenConnection: @escaping () -> Void = {},
-        onOpenAbout: @escaping () -> Void = {}  // Added default parameter
+        onOpenAbout: @escaping () -> Void = {}
     ) {
         _mode = mode
         self.onSelectMediaBrowsing = onSelectMediaBrowsing
@@ -33,7 +31,6 @@ struct StartView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // 배경
             Color.black.opacity(0.9).ignoresSafeArea()
 
             VStack(spacing: 24) {
@@ -45,23 +42,23 @@ struct StartView: View {
                 TaskCard(
                     icon: "play.rectangle.on.rectangle",
                     title: "Media Browsing Task",
-                    description: "Research Disclaimer → Platform Selection (Netflix/YouTube) → Web Browsing",
+                    description: "Research Disclaimer → Platform Selection (Netflix/YouTube) → Web Browsing with \(mode.displayName)",
                     prominent: true,
                     action: onSelectMediaBrowsing
                 )
 
-                // 기타 카드들 (필요 시 콜백 연결)
+                // 기타 카드들
                 HStack(spacing: 18) {
                     TaskCard(
                         icon: "rectangle.and.hand.point.up.left",
                         title: "Select Task",
-                        description: "Quantitative Task (kept as is)",
+                        description: "Quantitative panel selection task",
                         action: onOpenSelectTask
                     )
                     TaskCard(
                         icon: "arrow.up.and.down.and.arrow.left.and.right",
                         title: "Scroll Task",
-                        description: "Quantitative Task (kept as is)",
+                        description: "Quantitative scroll targeting task",
                         action: onOpenScrollTask
                     )
                 }
@@ -75,12 +72,11 @@ struct StartView: View {
                             : "Connect iPhone auxiliary controller",
                         action: onOpenConnection
                     )
-                    // About/Logs card now properly connected
                     TaskCard(
                         icon: "info.circle",
                         title: "About / Logs",
-                        description: "Experiment logs & CSV export",
-                        action: onOpenAbout  // Now properly connected
+                        description: "Experiment logs, data export & session controls",
+                        action: onOpenAbout  // ✅ 제대로 연결됨
                     )
                 }
 
@@ -146,7 +142,7 @@ private struct TaskCard: View {
                     Text(description)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                        .lineLimit(3)
                         .multilineTextAlignment(.leading)
                 }
 

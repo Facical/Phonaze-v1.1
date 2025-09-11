@@ -9,25 +9,20 @@ struct PlatformWebView: View {
     @StateObject private var model = WebViewModel()
     
     @EnvironmentObject private var connectivity: ConnectivityManager
-    
     @State private var showExitConfirmation = false
 
     var onBack: (() -> Void)? = nil
 
     var body: some View {
-        // ✅ [수정] ZStack을 VStack으로 변경하여 뷰가 겹치지 않게 합니다.
         VStack(spacing: 0) {
-            // 1. 상단에 툴바를 먼저 배치합니다.
             navigationToolbar
             
-            // 2. 그 아래에 WebView를 배치합니다.
+            // ✅ 단순한 WebView - Vision Pro 네이티브 입력 활용
             WebView(platform: platform, model: model)
         }
         .alert("Exit Web View?", isPresented: $showExitConfirmation) {
             Button("Cancel", role: .cancel) { }
-            Button("Exit", role: .destructive) {
-                onBack?()
-            }
+            Button("Exit", role: .destructive) { onBack?() }
         } message: {
             Text("Are you sure you want to exit?")
         }
@@ -57,8 +52,6 @@ struct PlatformWebView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
-        // ✅ [수정] VStack으로 변경했으므로, 불필요한 상단 여백(.padding(.top, 50))을 제거하고
-        // 배경(.background)을 추가하여 UI를 완성합니다.
         .background(.ultraThinMaterial)
     }
     
@@ -70,19 +63,21 @@ struct PlatformWebView: View {
     }
 }
 
-
 // MARK: - WebView Representable
 struct WebView: UIViewRepresentable {
     let platform: StreamingPlatform?
     let model: WebViewModel
     
     func makeUIView(context: Context) -> WKWebView {
-        // ✅ [수정] Vision Pro에서는 순정 WKWebView로 충분합니다.
+        // ✅ Vision Pro에서는 순정 WKWebView로 충분합니다.
         let webView = WKWebView()
         webView.navigationDelegate = model
         webView.uiDelegate = model
         
-        // Coordinator가 WebView를 제어할 수 있도록 참조를 전달합니다.
+        // ✅ 네이티브 Vision Pro 기능 활성화
+        webView.allowsBackForwardNavigationGestures = true
+        
+        // Coordinator가 원격 제어 신호를 처리
         context.coordinator.setWebView(webView)
 
         if let platform = platform {
@@ -98,7 +93,7 @@ struct WebView: UIViewRepresentable {
         Coordinator()
     }
     
-    // ✅ [수정] Coordinator가 아이폰의 원격 제어 신호를 처리합니다.
+    // ✅ 간소화된 Coordinator - iPhone의 간단한 신호만 처리
     class Coordinator: NSObject {
         weak var webView: WKWebView?
         private var cancellables = Set<AnyCancellable>()
@@ -108,21 +103,17 @@ struct WebView: UIViewRepresentable {
             setupRemoteControlHandlers()
         }
 
-        // ConnectivityManager로부터 오는 Notification을 받아 WebView를 제어합니다.
         private func setupRemoteControlHandlers() {
-            NotificationCenter.default.publisher(for: InteractionNoti.tap)
-                .receive(on: DispatchQueue.main) 
-                .sink { [weak self] notification in
-                    guard let userInfo = notification.userInfo,
-                          let nx = userInfo["nx"] as? Double,
-                          let ny = userInfo["ny"] as? Double else { return }
-                    
-                    let js = WebMessageBridge.clickJS(nx: nx, ny: ny)
-                    self?.webView?.evaluateJavaScript(js)
+            // ✅ iPhone에서 오는 간단한 탭 신호 처리
+            NotificationCenter.default.publisher(for: ConnectivityManager.Noti.hoverTap)
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    self?.performNativeTap()
                 }
                 .store(in: &cancellables)
             
-            NotificationCenter.default.publisher(for: InteractionNoti.scrollH)
+            // ✅ 스크롤은 그대로 유지 (잘 작동함)
+            NotificationCenter.default.publisher(for: ConnectivityManager.Noti.scrollH)
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] notification in
                     guard let userInfo = notification.userInfo,
@@ -132,7 +123,7 @@ struct WebView: UIViewRepresentable {
                 }
                 .store(in: &cancellables)
 
-            NotificationCenter.default.publisher(for: InteractionNoti.scrollV)
+            NotificationCenter.default.publisher(for: ConnectivityManager.Noti.scrollV)
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] notification in
                     guard let userInfo = notification.userInfo,
@@ -141,21 +132,54 @@ struct WebView: UIViewRepresentable {
                     self?.webView?.evaluateJavaScript(js)
                 }
                 .store(in: &cancellables)
-            NotificationCenter.default.publisher(for: ConnectivityManager.Noti.hoverTap)
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] _ in
-                    print("PlatformWebView: Executing hoverClickJS")
-                    let js = WebMessageBridge.hoverClickJS()
-                    self?.webView?.evaluateJavaScript(js) { result, error in
-                        if let error = error {
-                            print("HoverClick JS error: \(error)")
-                        } else {
-                            print("HoverClick JS executed successfully")
+        }
+        
+        // ✅ Vision Pro 네이티브 탭 - 현재 시선이 있는 곳을 자동으로 클릭
+        private func performNativeTap() {
+            guard let webView = webView else { return }
+            
+            // Vision Pro에서는 현재 포커스나 시선이 있는 위치를 자동으로 클릭
+            let js = """
+            (function() {
+                // 현재 포커스된 요소나 화면 중앙의 클릭 가능한 요소 찾기
+                var focusedEl = document.activeElement;
+                var centerEl = document.elementFromPoint(window.innerWidth/2, window.innerHeight/2);
+                
+                var targetEl = focusedEl && focusedEl !== document.body ? focusedEl : centerEl;
+                
+                if (targetEl) {
+                    // 클릭 가능한 부모 요소 찾기
+                    var clickable = targetEl;
+                    var attempts = 0;
+                    while (clickable && attempts < 5) {
+                        if (clickable.onclick || 
+                            clickable.tagName === 'A' || 
+                            clickable.tagName === 'BUTTON' || 
+                            clickable.tagName === 'INPUT' ||
+                            clickable.hasAttribute('onclick') ||
+                            clickable.classList.contains('clickable')) {
+                            break;
                         }
+                        clickable = clickable.parentElement;
+                        attempts++;
+                    }
+                    
+                    if (clickable) {
+                        clickable.click();
+                        return 'clicked: ' + clickable.tagName;
                     }
                 }
-                .store(in: &cancellables)
+                return 'no_clickable_element';
+            })();
+            """
             
+            webView.evaluateJavaScript(js) { result, error in
+                if let error = error {
+                    print("Native tap JS error: \(error)")
+                } else {
+                    print("Native tap result: \(String(describing: result))")
+                }
+            }
         }
     }
 }

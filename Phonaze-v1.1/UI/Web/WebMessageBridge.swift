@@ -1,33 +1,108 @@
 import Foundation
 
 /// 웹 페이지 내에서 스크롤/클릭을 수행하기 위한 JS 스니펫 유틸
+/// ✅ Vision Pro 네이티브 동작에 최적화
 enum WebMessageBridge {
 
     /// 스크롤: dx/dy는 pt(픽셀) 단위 상대 이동으로 가정
     static func scrollJS(dx: Double, dy: Double) -> String {
-        // 문서/윈도우 모두에 적용되도록 안전하게 처리
-        // 스크롤 가능한 최상위 컨테이너를 찾아 scrollBy 수행
         return """
         (function(){
           try {
             var dx = \(dx), dy = \(dy);
             // 최상위 윈도우 기준 스크롤
             window.scrollBy(dx, dy);
-            // 스크롤 안 먹히는 경우, 중앙 요소 기준으로 부모를 찾아 시도
-            var cx = Math.max(0, Math.min(window.innerWidth - 1, Math.round(window.innerWidth * 0.5)));
-            var cy = Math.max(0, Math.min(window.innerHeight - 1, Math.round(window.innerHeight * 0.5)));
-            var el = document.elementFromPoint(cx, cy);
-            var tries = 0;
-            while (el && tries < 5) {
-              if (el.scrollBy) { el.scrollBy(dx, dy); break; }
-              el = el.parentElement; tries++;
+            
+            // 스크롤이 안 되는 경우 중앙 요소의 스크롤 가능한 부모 찾기
+            var centerX = window.innerWidth / 2;
+            var centerY = window.innerHeight / 2;
+            var el = document.elementFromPoint(centerX, centerY);
+            
+            var attempts = 0;
+            while (el && attempts < 3) {
+              if (el.scrollBy && (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth)) {
+                el.scrollBy(dx, dy);
+                break;
+              }
+              el = el.parentElement;
+              attempts++;
             }
-          } catch(e) { /* no-op */ }
+          } catch(e) { 
+            console.log('Scroll error:', e);
+          }
         })();
         """
     }
 
-    /// 클릭: 정규화 좌표(nx, ny ∈ [0,1])를 화면 좌표로 변환하여 그 지점 요소에 클릭 이벤트 디스패치
+    /// ✅ Vision Pro용 간단한 네이티브 클릭
+    /// 복잡한 좌표 계산 없이 현재 포커스나 시선 위치를 클릭
+    static func nativeTapJS() -> String {
+        return """
+        (function(){
+          try {
+            console.log('Native tap starting');
+            
+            // 1. 현재 포커스된 요소 확인
+            var focusedEl = document.activeElement;
+            if (focusedEl && focusedEl !== document.body && focusedEl !== document.documentElement) {
+              console.log('Clicking focused element:', focusedEl.tagName);
+              focusedEl.click();
+              return 'focused_clicked';
+            }
+            
+            // 2. 시선이 있을 가능성이 높은 화면 중앙의 클릭 가능한 요소 찾기
+            var centerX = window.innerWidth / 2;
+            var centerY = window.innerHeight / 2;
+            var centerEl = document.elementFromPoint(centerX, centerY);
+            
+            if (centerEl) {
+              // 클릭 가능한 부모 요소 찾기
+              var clickable = centerEl;
+              var maxAttempts = 5;
+              
+              while (clickable && maxAttempts > 0) {
+                // 클릭 가능한 요소 판별
+                if (clickable.onclick || 
+                    clickable.tagName === 'A' || 
+                    clickable.tagName === 'BUTTON' || 
+                    clickable.tagName === 'INPUT' ||
+                    clickable.tagName === 'SELECT' ||
+                    clickable.hasAttribute('onclick') ||
+                    clickable.classList.contains('clickable') ||
+                    clickable.getAttribute('role') === 'button') {
+                  
+                  console.log('Clicking element:', clickable.tagName);
+                  clickable.click();
+                  return 'center_clicked';
+                }
+                clickable = clickable.parentElement;
+                maxAttempts--;
+              }
+            }
+            
+            // 3. 마지막 대안: 화면 중앙에 마우스 이벤트 발생
+            if (centerEl) {
+              var evt = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: centerX,
+                clientY: centerY
+              });
+              centerEl.dispatchEvent(evt);
+              return 'event_dispatched';
+            }
+            
+            return 'no_action';
+          } catch(e) {
+            console.log('Native tap error:', e);
+            return 'error: ' + e.message;
+          }
+        })();
+        """
+    }
+
+    /// ✅ 기존 좌표 기반 클릭 (레거시 호환용)
     static func clickJS(nx: Double, ny: Double) -> String {
         return """
         (function(){
@@ -37,9 +112,9 @@ enum WebMessageBridge {
             var x  = Math.round((window.innerWidth  - 1) * nx);
             var y  = Math.round((window.innerHeight - 1) * ny);
             var el = document.elementFromPoint(x, y);
-            if (!el) return;
+            if (!el) return 'no_element';
 
-            function fire(type) {
+            function fireEvent(type) {
               var evt = new MouseEvent(type, {
                 bubbles: true, cancelable: true, view: window,
                 clientX: x, clientY: y, screenX: x, screenY: y,
@@ -47,85 +122,17 @@ enum WebMessageBridge {
               });
               el.dispatchEvent(evt);
             }
-            fire('mousedown');
-            fire('mouseup');
-            fire('click');
-          } catch(e) { /* no-op */ }
-        })();
-        """
-    }
-    
-    static func hoverClickJS() -> String {
-        return """
-        (function(){
-          try {
-            console.log('HoverClick: Starting');
             
-            // 방법 1: hover 상태 요소 찾기
-            var hoveredElements = document.querySelectorAll(':hover');
-            if (hoveredElements.length > 0) {
-              var targetElement = hoveredElements[hoveredElements.length - 1];
-              console.log('HoverClick: Found hovered element:', targetElement.tagName);
-              targetElement.click();
-              return;
-            }
-            
-            // 방법 2: 화면 중앙의 요소 클릭 (폴백)
-            var centerX = window.innerWidth / 2;
-            var centerY = window.innerHeight / 2;
-            var centerElement = document.elementFromPoint(centerX, centerY);
-            
-            if (centerElement) {
-              console.log('HoverClick: Clicking center element:', centerElement.tagName);
-              
-              // 포커스 가능한 요소 찾기
-              var clickable = centerElement;
-              while (clickable && !clickable.onclick && clickable.tagName !== 'A' && 
-                     clickable.tagName !== 'BUTTON' && clickable.tagName !== 'INPUT' &&
-                     !clickable.hasAttribute('onclick') && clickable.parentElement) {
-                clickable = clickable.parentElement;
-              }
-              
-              if (clickable) {
-                console.log('HoverClick: Found clickable parent:', clickable.tagName);
-                
-                // 여러 방법으로 클릭 시도
-                clickable.focus && clickable.focus();
-                clickable.click();
-                
-                // MouseEvent 직접 발생
-                var evt = new MouseEvent('click', {
-                  bubbles: true,
-                  cancelable: true,
-                  view: window,
-                  clientX: centerX,
-                  clientY: centerY
-                });
-                clickable.dispatchEvent(evt);
-                
-                // Touch 이벤트도 시도 (모바일 웹용)
-                var touchEvt = new TouchEvent('touchend', {
-                  bubbles: true,
-                  cancelable: true,
-                  view: window,
-                  touches: [],
-                  targetTouches: [],
-                  changedTouches: [new Touch({
-                    identifier: Date.now(),
-                    target: clickable,
-                    clientX: centerX,
-                    clientY: centerY,
-                    pageX: centerX,
-                    pageY: centerY
-                  })]
-                });
-                clickable.dispatchEvent(touchEvt);
-              }
-            }
-          } catch(e) {
-            console.log('HoverClick error: ' + e.toString());
+            fireEvent('mousedown');
+            fireEvent('mouseup');
+            fireEvent('click');
+            return 'coordinate_clicked';
+          } catch(e) { 
+            return 'error: ' + e.message;
           }
         })();
         """
     }
+
+    /// ✅ 기존 hoverClickJS 제거됨 - nativeTapJS()로 대체
 }
