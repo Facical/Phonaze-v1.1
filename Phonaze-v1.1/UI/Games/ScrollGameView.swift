@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ScrollGameView: View {
     @EnvironmentObject var connectivity: ConnectivityManager
+    @EnvironmentObject var enhancedLogger: EnhancedExperimentLogger
+    @EnvironmentObject var unintendedTracker: UnintendedSelectionTracker
     var onBack: (() -> Void)? = nil  // Add back callback
     
     let numbers = Array(1...50)
@@ -16,6 +18,9 @@ struct ScrollGameView: View {
     @State private var targetNumber: Int? = nil
     @State private var startTime: Date? = nil
     @State private var gameTime: Double = 0.0
+    @State private var scrollDistance: Double = 0
+    @State private var scrollEvents: Int = 0
+    
     
     var body: some View {
         VStack(spacing: 0) {
@@ -262,6 +267,8 @@ extension ScrollGameView {
             centerCheckTask = task
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: task)
         }
+        unintendedTracker.recordScroll()
+        scrollEvents += 1
     }
     
     private func handleScored() {
@@ -277,6 +284,21 @@ extension ScrollGameView {
         gameOver = true
         if let start = startTime {
             gameTime = Date().timeIntervalSince(start)
+            
+            // Enhanced logging
+            let metrics = EnhancedExperimentLogger.ScrollMetrics(
+                interactionMode: getCurrentInteractionMode(),
+                startTime: start,
+                endTime: Date(),
+                totalScrollDistance: scrollDistance,
+                scrollEvents: scrollEvents,
+                targetTokens: scoreGoal ?? 0,
+                foundTokens: score,
+                missedTokens: (scoreGoal ?? 0) - score,
+                falsePositives: 0,
+                averageScrollSpeed: scrollEvents > 0 ? scrollDistance / Double(scrollEvents) : 0
+            )
+            enhancedLogger.logScrollMetrics(metrics)
         }
     }
     

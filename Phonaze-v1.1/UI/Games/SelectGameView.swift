@@ -13,6 +13,9 @@ struct GameInteraction {
 
 struct SelectGameView: View {
     @EnvironmentObject var connectivity: ConnectivityManager
+    @EnvironmentObject var enhancedLogger: EnhancedExperimentLogger
+    @EnvironmentObject var unintendedTracker: UnintendedSelectionTracker
+        
     var onBack: (() -> Void)? = nil  // Add back callback
 
     // --- Basic Settings ---
@@ -180,13 +183,24 @@ struct SelectGameView: View {
             .fill(panelColor(for: index))
             .aspectRatio(1.0, contentMode: .fit)
             .cornerRadius(8)
+            .trackUnintendedSelection(id: "panel_\(index)")
+            .frame(width: 100, height: 100)
             .shadow(color: .black.opacity(0.3), radius: 3, x: 2, y: 2)
             .hoverEffect()
             .onHover { isHovering in
-                hoveredIndex = isHovering ? index : nil
+                if isHovering{
+                    hoveredIndex = index
+                    unintendedTracker.startDwell(elementID: "panel_\(index)")
+                } else {
+                    unintendedTracker.endDwell()
+                    hoveredIndex = nil
+                }
             }
             .onTapGesture {
-                processSelection(selectedIndex: index, via: "Direct")
+                if !unintendedTracker.checkTapDuringScroll(elementID: "panel_\(index)") {
+                    processSelection(selectedIndex: index, via: "Direct")
+                }
+                
             }
     }
 
@@ -212,6 +226,21 @@ struct SelectGameView: View {
         if gameState == .playing {
             if let start = gameStartTime {
                 totalGameTime = Date().timeIntervalSince(start)
+                
+                // Enhanced logging 추가
+                let metrics = EnhancedExperimentLogger.TaskMetrics(
+                    taskType: "selection",
+                    interactionMode: getCurrentInteractionMode(),
+                    startTime: start,
+                    endTime: Date(),
+                    completionTime: totalGameTime,
+                    targetCount: totalRounds,
+                    successCount: successCount,
+                    errorCount: failCount,
+                    unintendedSelections: unintendedTracker.unintendedSelections.count,
+                    accuracy: Double(successCount) / Double(max(1, totalRounds))
+                )
+                enhancedLogger.logTaskMetrics(metrics)
             }
         }
         gameState = .results
@@ -258,7 +287,21 @@ struct SelectGameView: View {
         if successful {
             successCount += 1
             if successCount >= totalRounds {
-                stopGame()
+                            // Task 완료 시 metrics 로깅
+                            let metrics = EnhancedExperimentLogger.TaskMetrics(
+                                taskType: "selection",
+                                interactionMode: inputMethod,
+                                startTime: start,
+                                endTime: Date(),
+                                completionTime: Date().timeIntervalSince(start),
+                                targetCount: totalRounds,
+                                successCount: successCount,
+                                errorCount: failCount,
+                                unintendedSelections: unintendedTracker.unintendedSelections.count,
+                                accuracy: Double(successCount) / Double(totalRounds)
+                            )
+                            enhancedLogger.logTaskMetrics(metrics)
+                            stopGame()
             } else {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     setRandomTarget()

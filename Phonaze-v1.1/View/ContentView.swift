@@ -14,6 +14,9 @@ struct ContentView: View {
     @EnvironmentObject private var connectivity: ConnectivityManager
     @EnvironmentObject private var focusTracker: FocusTracker
     @EnvironmentObject private var experimentSession: ExperimentSession
+    
+    @EnvironmentObject private var enhancedLogger: EnhancedExperimentLogger  // 추가
+    @StateObject private var unintendedTracker = UnintendedSelectionTracker()  // 추가
 
     enum Route: Hashable {
         case start, disclaimer, platformPicker, web, selectTask, scrollTask, connection, about
@@ -33,6 +36,7 @@ struct ContentView: View {
                 )
                 .onChange(of: mode) { _, new in
                     connectivity.sendMode(new)
+                    setCurrentInteractionMode(new) // 추가: 모드 저장
                 }
 
             case .disclaimer:
@@ -48,20 +52,17 @@ struct ContentView: View {
                     onPick: { platform in
                         selectedPlatform = platform
                         
-                        // 실험 설정 업데이트
                         var cfg = ExperimentConfig.default(participantID: "P\(Int(Date().timeIntervalSince1970))")
                         cfg.platform = platform.rawValue
                         cfg.interactionMode = mode.rawValue
                         cfg.taskType = "browsing"
 
-                        // 실험 세션 재생성 (새로운 설정으로)
                         let session = ExperimentSession(
                             config: cfg,
                             focusTracker: focusTracker,
                             sender: { msg in connectivity.sendRaw(msg) }
                         )
                         
-                        // ConnectivityManager에 연결
                         connectivity.setExperimentSession(session)
                         session.startOrContinue()
                         connectivity.sendMode(mode)
@@ -74,17 +75,40 @@ struct ContentView: View {
 
             case .web:
                 if let p = selectedPlatform {
-                    PlatformWebView(platform: p, onBack: { route = .platformPicker })
-                        // ✅ InteractionOverlay 완전 제거 - Vision Pro 네이티브 입력만 사용
-                        .transition(.opacity.combined(with: .scale))
+                    PlatformWebViewEnhanced(
+                        platform: p,
+                        onBack: { route = .platformPicker },
+                        onSessionComplete: { sessionData in
+                            // 브라우징 세션 데이터 로깅
+                            let metrics = EnhancedExperimentLogger.BrowsingMetrics(
+                                platform: sessionData.platform,
+                                interactionMode: mode.rawValue,
+                                sessionDuration: sessionData.totalDuration,
+                                pagesVisited: sessionData.pagesVisited,
+                                totalClicks: sessionData.totalInteractions,
+                                totalScrolls: 0,
+                                unintendedSelections: sessionData.unintendedSelections,
+                                videoPlays: 0,
+                                searchQueries: 0,
+                                navigationActions: sessionData.pagesVisited
+                            )
+                            enhancedLogger.logBrowsingMetrics(metrics)
+                        }
+                    )
+                    .environmentObject(unintendedTracker)
+                    .transition(.opacity.combined(with: .scale))
                 }
 
             case .selectTask:
                 SelectGameView(onBack: { route = .start })
+                    .environmentObject(enhancedLogger)
+                    .environmentObject(unintendedTracker)
                     .overlay(modeBadge, alignment: .topTrailing)
 
             case .scrollTask:
                 ScrollGameView(onBack: { route = .start })
+                    .environmentObject(enhancedLogger)
+                    .environmentObject(unintendedTracker)
                     .overlay(modeBadge, alignment: .topTrailing)
 
             case .connection:
@@ -95,8 +119,13 @@ struct ContentView: View {
                 AboutLogsView(onBack: { route = .start })
             }
         }
+        .environmentObject(unintendedTracker)
+        .environmentObject(enhancedLogger)
         .task { connectivity.start() }
-        .onAppear { connectivity.sendMode(mode) }
+        .onAppear {
+            connectivity.sendMode(mode)
+            setCurrentInteractionMode(mode) // 추가: 초기 모드 저장
+        }
     }
 
     // MARK: - UI helpers

@@ -86,39 +86,42 @@ final class ConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Internal handling
     private func handle(_ data: Data, from peerID: MCPeerID) {
-        // 1) JSON 우선
-        if let wm = try? MessageCodec.decode(data) {
-            lastReceivedWire = wm
-            route(wm)
-            return
-        }
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
 
-        // 2) 문자열(레거시/WEB_*)
-        guard let msg = String(data: data, encoding: .utf8) else { return }
-        lastReceivedMessage = msg
-        route(raw: msg)
+            // 1) JSON 우선
+            if let wm = try? MessageCodec.decode(data) {
+                self.lastReceivedWire = wm
+                self.route(wm)
+                return
+            }
+
+            // 2) 문자열(레거시/WEB_*)
+            guard let msg = String(data: data, encoding: .utf8) else { return }
+            self.lastReceivedMessage = msg
+            self.route(raw: msg)
+        }
     }
 
     private func route(_ wm: WireMessage) {
-        DispatchQueue.main.async { [weak self] in
+        // DispatchQueue.main.async { [weak self] in  <- 이 줄 제거
             switch wm {
             case .hello(let h):
                 print("HELLO from \(h.role) v\(h.version)")
 
             case .ping(let p):
-                self?.sendWire(.pong(.init(t: p.t)))
+                self.sendWire(.pong(.init(t: p.t)))
 
             case .pong(let p):
                 print("PONG latency ~\(Date().timeIntervalSince1970 - p.t) s")
 
             case .modeSet(let m):
-                self?.experimentSession?.log(kind: "mode_switch", payload: ["mode": m.mode])
+                self.experimentSession?.log(kind: "mode_switch", payload: ["mode": m.mode])
 
             case .webTap(let t):
-                // ✅ 레거시 좌표 기반 탭 (필요시 유지)
                 NotificationCenter.default.post(name: ConnectivityManager.Noti.tap, object: nil,
                                                 userInfo: ["nx": t.nx, "ny": t.ny])
-                self?.experimentSession?.log(kind: "web_tap", payload: ["nx": "\(t.nx)", "ny": "\(t.ny)"])
+                self.experimentSession?.log(kind: "web_tap", payload: ["nx": "\(t.nx)", "ny": "\(t.ny)"])
 
             case .webScroll(let s):
                 if s.dx != 0 {
@@ -127,15 +130,13 @@ final class ConnectivityManager: NSObject, ObservableObject {
                 if s.dy != 0 {
                     NotificationCenter.default.post(name: ConnectivityManager.Noti.scrollV, object: nil, userInfo: ["dy": s.dy])
                 }
-                self?.experimentSession?.log(kind: "web_scroll", payload: ["dx": "\(s.dx)", "dy": "\(s.dy)"])
+                self.experimentSession?.log(kind: "web_scroll", payload: ["dx": "\(s.dx)", "dy": "\(s.dy)"])
                 
             case .webHoverTap:
-                // ✅ iPhone의 시선 기반 탭 신호 - Vision Pro가 현재 시선 위치를 자동 클릭
                 print("ConnectivityManager: Received webHoverTap - triggering native tap")
                 NotificationCenter.default.post(name: ConnectivityManager.Noti.hoverTap, object: nil)
-                self?.experimentSession?.log(kind: "web_hover_tap", payload: [:])
+                self.experimentSession?.log(kind: "web_hover_tap", payload: [:])
             }
-        }
     }
 
     private func route(raw message: String) {

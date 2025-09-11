@@ -79,7 +79,7 @@ struct WebView: UIViewRepresentable {
         
         // Coordinator가 원격 제어 신호를 처리
         context.coordinator.setWebView(webView)
-
+        
         if let platform = platform {
             model.load(platform: platform, in: webView)
         }
@@ -102,7 +102,7 @@ struct WebView: UIViewRepresentable {
             self.webView = webView
             setupRemoteControlHandlers()
         }
-
+        
         private func setupRemoteControlHandlers() {
             // ✅ iPhone에서 오는 간단한 탭 신호 처리
             NotificationCenter.default.publisher(for: ConnectivityManager.Noti.hoverTap)
@@ -122,7 +122,7 @@ struct WebView: UIViewRepresentable {
                     self?.webView?.evaluateJavaScript(js)
                 }
                 .store(in: &cancellables)
-
+            
             NotificationCenter.default.publisher(for: ConnectivityManager.Noti.scrollV)
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] notification in
@@ -135,49 +135,18 @@ struct WebView: UIViewRepresentable {
         }
         
         // ✅ Vision Pro 네이티브 탭 - 현재 시선이 있는 곳을 자동으로 클릭
+        // ✅ [수정] Vision Pro 네이티브 탭 - 단순화된 JS 실행
         private func performNativeTap() {
             guard let webView = webView else { return }
             
-            // Vision Pro에서는 현재 포커스나 시선이 있는 위치를 자동으로 클릭
-            let js = """
-            (function() {
-                // 현재 포커스된 요소나 화면 중앙의 클릭 가능한 요소 찾기
-                var focusedEl = document.activeElement;
-                var centerEl = document.elementFromPoint(window.innerWidth/2, window.innerHeight/2);
-                
-                var targetEl = focusedEl && focusedEl !== document.body ? focusedEl : centerEl;
-                
-                if (targetEl) {
-                    // 클릭 가능한 부모 요소 찾기
-                    var clickable = targetEl;
-                    var attempts = 0;
-                    while (clickable && attempts < 5) {
-                        if (clickable.onclick || 
-                            clickable.tagName === 'A' || 
-                            clickable.tagName === 'BUTTON' || 
-                            clickable.tagName === 'INPUT' ||
-                            clickable.hasAttribute('onclick') ||
-                            clickable.classList.contains('clickable')) {
-                            break;
-                        }
-                        clickable = clickable.parentElement;
-                        attempts++;
-                    }
-                    
-                    if (clickable) {
-                        clickable.click();
-                        return 'clicked: ' + clickable.tagName;
-                    }
-                }
-                return 'no_clickable_element';
-            })();
-            """
+            let js = WebMessageBridge.nativeTapJS()
             
             webView.evaluateJavaScript(js) { result, error in
                 if let error = error {
-                    print("Native tap JS error: \(error)")
-                } else {
-                    print("Native tap result: \(String(describing: result))")
+                    print("Native tap JS error: \(error.localizedDescription)")
+                }
+                if let result = result {
+                    print("Native tap result: \(result)")
                 }
             }
         }
