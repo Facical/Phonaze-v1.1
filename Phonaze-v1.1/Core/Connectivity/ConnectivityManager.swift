@@ -1,3 +1,5 @@
+// Phonaze-v1.1/Core/Connectivity/ConnectivityManager.swift
+
 import Foundation
 import MultipeerConnectivity
 import SwiftUI
@@ -28,7 +30,7 @@ final class ConnectivityManager: NSObject, ObservableObject {
         static let scrollH = Notification.Name("EXP_SCROLL_H")
         static let scrollV = Notification.Name("EXP_SCROLL_V")
         static let tap     = Notification.Name("EXP_TAP")
-        static let hoverTap = Notification.Name("EXP_HOVER_TAP") // ✅ iPhone의 시선 기반 탭
+        static let hoverTap = Notification.Name("EXP_HOVER_TAP")
     }
 
     // MARK: - Lifecycle
@@ -104,39 +106,58 @@ final class ConnectivityManager: NSObject, ObservableObject {
     }
 
     private func route(_ wm: WireMessage) {
-        // DispatchQueue.main.async { [weak self] in  <- 이 줄 제거
-            switch wm {
-            case .hello(let h):
-                print("HELLO from \(h.role) v\(h.version)")
+        // ✅ 핵심 수정: WireMessage를 NotificationCenter로 전달
+        switch wm {
+        case .hello(let h):
+            print("HELLO from \(h.role) v\(h.version)")
 
-            case .ping(let p):
-                self.sendWire(.pong(.init(t: p.t)))
+        case .ping(let p):
+            self.sendWire(.pong(.init(t: p.t)))
 
-            case .pong(let p):
-                print("PONG latency ~\(Date().timeIntervalSince1970 - p.t) s")
+        case .pong(let p):
+            print("PONG latency ~\(Date().timeIntervalSince1970 - p.t) s")
 
-            case .modeSet(let m):
-                self.experimentSession?.log(kind: "mode_switch", payload: ["mode": m.mode])
+        case .modeSet(let m):
+            self.experimentSession?.log(kind: "mode_switch", payload: ["mode": m.mode])
 
-            case .webTap(let t):
-                NotificationCenter.default.post(name: ConnectivityManager.Noti.tap, object: nil,
-                                                userInfo: ["nx": t.nx, "ny": t.ny])
-                self.experimentSession?.log(kind: "web_tap", payload: ["nx": "\(t.nx)", "ny": "\(t.ny)"])
+        case .webTap(let t):
+            print("📱 Routing webTap: (\(t.nx), \(t.ny))")
+            NotificationCenter.default.post(
+                name: ConnectivityManager.Noti.tap,
+                object: nil,
+                userInfo: ["nx": t.nx, "ny": t.ny]
+            )
+            self.experimentSession?.log(kind: "web_tap", payload: ["nx": "\(t.nx)", "ny": "\(t.ny)"])
 
-            case .webScroll(let s):
-                if s.dx != 0 {
-                    NotificationCenter.default.post(name: ConnectivityManager.Noti.scrollH, object: nil, userInfo: ["dx": s.dx])
-                }
-                if s.dy != 0 {
-                    NotificationCenter.default.post(name: ConnectivityManager.Noti.scrollV, object: nil, userInfo: ["dy": s.dy])
-                }
-                self.experimentSession?.log(kind: "web_scroll", payload: ["dx": "\(s.dx)", "dy": "\(s.dy)"])
-                
-            case .webHoverTap:
-                print("ConnectivityManager: Received webHoverTap - triggering native tap")
-                NotificationCenter.default.post(name: ConnectivityManager.Noti.hoverTap, object: nil)
-                self.experimentSession?.log(kind: "web_hover_tap", payload: [:])
+        case .webScroll(let s):
+            print("📱 Routing webScroll: dx=\(s.dx), dy=\(s.dy)")
+            
+            // ✅ 수평/수직 스크롤 모두 처리
+            if s.dx != 0 {
+                NotificationCenter.default.post(
+                    name: ConnectivityManager.Noti.scrollH,
+                    object: nil,
+                    userInfo: ["dx": s.dx]
+                )
             }
+            if s.dy != 0 {
+                NotificationCenter.default.post(
+                    name: ConnectivityManager.Noti.scrollV,
+                    object: nil,
+                    userInfo: ["dy": s.dy]
+                )
+            }
+            
+            self.experimentSession?.log(kind: "web_scroll", payload: ["dx": "\(s.dx)", "dy": "\(s.dy)"])
+                
+        case .webHoverTap:
+            print("ConnectivityManager: Received webHoverTap - triggering native tap")
+            NotificationCenter.default.post(
+                name: ConnectivityManager.Noti.hoverTap,
+                object: nil
+            )
+            self.experimentSession?.log(kind: "web_hover_tap", payload: [:])
+        }
     }
 
     private func route(raw message: String) {

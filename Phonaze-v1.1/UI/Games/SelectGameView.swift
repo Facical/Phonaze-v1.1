@@ -1,4 +1,4 @@
-// Phonaze-v1.1/View/SelectView.swift
+// Phonaze-v1.1/UI/Games/SelectGameView.swift
 
 import SwiftUI
 
@@ -16,7 +16,7 @@ struct SelectGameView: View {
     @EnvironmentObject var enhancedLogger: EnhancedExperimentLogger
     @EnvironmentObject var unintendedTracker: UnintendedSelectionTracker
         
-    var onBack: (() -> Void)? = nil  // Add back callback
+    var onBack: (() -> Void)? = nil
 
     // --- Basic Settings ---
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
@@ -36,7 +36,7 @@ struct SelectGameView: View {
     
     // --- Target and Input Management ---
     @State private var currentTargetIndex: Int?
-    @State private var hoveredIndex: Int?
+    @State private var hoveredIndex: Int?  // ✅ 현재 시선이 머무는 패널
     @State private var hasSelectedCurrentTarget = false
     
     // --- Data Recording ---
@@ -80,47 +80,11 @@ struct SelectGameView: View {
             Button("20 Points") { setRoundsAndStart(20) }
         }
         .onChange(of: connectivity.lastReceivedMessage) { _, newMessage in
-            handleRemoteMessage(newMessage)
-        }
-        .onDisappear(perform: stopGame)
-    }
-    
-    private func handleRemoteMessage(_ message: String) {
-        guard gameState == .playing else { return }
-        
-        if message.hasPrefix("TAP") {
-            // 실제로 보고 있는 패널 사용
-            if let hovered = hoveredIndex {
-                processSelection(selectedIndex: hovered, via: "iPhone")
-            } else if let focusedID = focusTracker.currentFocusedID,
-                      focusedID.hasPrefix("panel_"),
-                      let indexStr = focusedID.split(separator: "_").last,
-                      let index = Int(indexStr) {
-                // FocusTracker에서 가져오기
-                processSelection(selectedIndex: index, via: "iPhone")
-            } else {
-                // 아무것도 보고 있지 않을 때는 실패 처리
-                failCount += 1
-                print("TAP received but no panel is being looked at")
-                
-                // 실패도 기록
-                if let target = currentTargetIndex, let start = gameStartTime {
-                    let interaction = GameInteraction(
-                        timestamp: Date().timeIntervalSince(start),
-                        targetPanel: target,
-                        selectedPanel: -1,  // -1은 "no selection"을 의미
-                        wasSuccessful: false,
-                        inputMethod: "iPhone"
-                    )
-                    interactions.append(interaction)
-                }
-                
-                // 다음 타겟으로
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    setRandomTarget()
-                }
+            if newMessage.hasPrefix("TAP") {
+                handleTapFromiPhone()
             }
         }
+        .onDisappear(perform: stopGame)
     }
 
     // MARK: - Subviews
@@ -222,27 +186,56 @@ struct SelectGameView: View {
             .shadow(color: .black.opacity(0.3), radius: 3, x: 2, y: 2)
             .hoverEffect()
             .onHover { isHovering in
-                if isHovering{
+                if isHovering {
                     hoveredIndex = index
-                    focusTracker.updateCandidate(id: "panel_\(index)")
                     unintendedTracker.startDwell(elementID: "panel_\(index)")
                 } else {
                     if hoveredIndex == index {
-                                hoveredIndex = nil
-                                focusTracker.updateCandidate(id: nil)
-                            }
-                            unintendedTracker.endDwell()
+                        hoveredIndex = nil
+                    }
+                    unintendedTracker.endDwell()
                 }
             }
             .onTapGesture {
                 if !unintendedTracker.checkTapDuringScroll(elementID: "panel_\(index)") {
                     processSelection(selectedIndex: index, via: "Direct")
                 }
-                
             }
     }
 
-    // MARK: - Game Logic (unchanged)
+    // MARK: - iPhone Tap Handling (핵심 수정)
+    
+    private func handleTapFromiPhone() {
+        guard gameState == .playing else { return }
+        
+        // ✅ 실제로 보고 있는 패널 사용 (hoveredIndex)
+        if let hovered = hoveredIndex {
+            processSelection(selectedIndex: hovered, via: "iPhone")
+        } else {
+            // ✅ 아무것도 보고 있지 않으면 실패 처리
+            failCount += 1
+            print("TAP received but no panel is hovered - counting as fail")
+            
+            // 실패 기록
+            if let target = currentTargetIndex, let start = gameStartTime {
+                let interaction = GameInteraction(
+                    timestamp: Date().timeIntervalSince(start),
+                    targetPanel: target,
+                    selectedPanel: -1,  // -1 = no selection
+                    wasSuccessful: false,
+                    inputMethod: "iPhone"
+                )
+                interactions.append(interaction)
+            }
+            
+            // 다음 타겟으로
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                setRandomTarget()
+            }
+        }
+    }
+
+    // MARK: - Game Logic
     
     private func setRoundsAndStart(_ count: Int) {
         totalRounds = count
@@ -257,6 +250,7 @@ struct SelectGameView: View {
         interactions = []
         gameState = .playing
         hasSelectedCurrentTarget = false
+        hoveredIndex = nil
         setRandomTarget()
     }
 
@@ -265,7 +259,7 @@ struct SelectGameView: View {
             if let start = gameStartTime {
                 totalGameTime = Date().timeIntervalSince(start)
                 
-                // Enhanced logging 추가
+                // Enhanced logging
                 let metrics = EnhancedExperimentLogger.TaskMetrics(
                     taskType: "selection",
                     interactionMode: getCurrentInteractionMode(),
@@ -290,6 +284,7 @@ struct SelectGameView: View {
         interactions = []
         currentTargetIndex = nil
         hasSelectedCurrentTarget = false
+        hoveredIndex = nil
         gameState = .startScreen
     }
     
@@ -325,21 +320,21 @@ struct SelectGameView: View {
         if successful {
             successCount += 1
             if successCount >= totalRounds {
-                            // Task 완료 시 metrics 로깅
-                            let metrics = EnhancedExperimentLogger.TaskMetrics(
-                                taskType: "selection",
-                                interactionMode: inputMethod,
-                                startTime: start,
-                                endTime: Date(),
-                                completionTime: Date().timeIntervalSince(start),
-                                targetCount: totalRounds,
-                                successCount: successCount,
-                                errorCount: failCount,
-                                unintendedSelections: unintendedTracker.unintendedSelections.count,
-                                accuracy: Double(successCount) / Double(totalRounds)
-                            )
-                            enhancedLogger.logTaskMetrics(metrics)
-                            stopGame()
+                // Task 완료
+                let metrics = EnhancedExperimentLogger.TaskMetrics(
+                    taskType: "selection",
+                    interactionMode: inputMethod,
+                    startTime: start,
+                    endTime: Date(),
+                    completionTime: Date().timeIntervalSince(start),
+                    targetCount: totalRounds,
+                    successCount: successCount,
+                    errorCount: failCount,
+                    unintendedSelections: unintendedTracker.unintendedSelections.count,
+                    accuracy: Double(successCount) / Double(totalRounds)
+                )
+                enhancedLogger.logTaskMetrics(metrics)
+                stopGame()
             } else {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     setRandomTarget()
